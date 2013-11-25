@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+    {% for message in messages %}
+        <div class="alert alert-danger">{{ message }}</div>
+    {% endfor %}
+    <form role="form" method="post" class="col-md-6">
+        {% csrf_token %}
+        <div class="form-group {% if form.username.errors or incorrect %}has-error{% endif %}">
+            <label for="id_username" class="control-label">Username</label>
+            {% if form.username.errors %}
+                <div class="alert alert-danger">{{ form.username.errors }}</div>
+            {% endif %}
+            {{ form.username }}
+        </div>
+        <div class="form-group {% if form.username.errors or incorrect %}has-error{% endif %}">
+            <label for="id_username" class="control-label">E-mail</label>
+            {% if form.email.errors %}
+                <div class="alert alert-danger">{{ form.email.errors }}</div>
+            {% endif %}
+            {{ form.email }}
+        </div>
+        <div class="form-group {% if form.password.errors or incorrect %}has-error{% endif %}">
+            <label for="id_password" class="control-label">Password</label>
+            {% if form.password.errors %}
+                <div class="alert alert-danger">{{ form.password.errors }}</div>
+            {% endif %}
+            {{ form.password }}
+            {#      <input type="password" class="form-control" id="password" name="password" placeholder="Password">#}
+        </div>
+        <button type="submit" class="btn btn-default">Login</button>
+    </form>
+
+{% endblock %}
