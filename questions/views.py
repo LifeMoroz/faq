@@ -20,8 +20,9 @@ ORDERING_TYPES = (ORDERING_RATING, )
 def index(request):
     data = {}
     data['questionform'] = QuestionForm()
-    query = Question.objects.all().select_related('author',
-        'author__user', 'author__user_username', 'author__user_id')
+    query = Question.objects.all()
+    # selet_related() 
+    
     paginator = Paginator(query, 20)
     page_number = request.GET.get('page', '1')
     
@@ -39,8 +40,9 @@ def index(request):
 def popular(request):
     data = {'questionform': QuestionForm()}
     ordering = ORDERING_RATING
-    query = Question.objects.order_by(ordering).select_related('author',
-        'author__user', 'author__user_username', 'author__user_id')
+    #query = Question.objects.order_by(ordering).select_related('author',
+    #    'author__user', 'author__user_username', 'author__user_id')
+    query = Question.objects.order_by(ordering)
     paginator = Paginator(query, 20)
     page_number = request.GET.get('page', '1')
     
@@ -100,7 +102,7 @@ def question(request, question_id):
     query = q.answers.all().select_related('author',
         'author__user', 'author__user_username', 'author__user_id')
     
-    paginator = Paginator(query, 3)
+    paginator = Paginator(query, 30)
     page_number = request.GET.get('page', '1')
     
     try:
@@ -138,7 +140,7 @@ def user(request, user_id):
     data = {}
     data['active'] = 'user'
     
-    u = QuestionsUser.objects.filter(id=int(user_id)).select_related('user')
+    u = QuestionsUser.objects.filter(id=int(user_id)).values('id', 'user__username')
     
     if len(u) == 0:
         raise Http404
@@ -146,6 +148,11 @@ def user(request, user_id):
     u = u[0]
         
     data['question_user'] = u
+        
+    data['questions'] = Question.objects.filter(author_id=int(user_id)).select_related()
+    data['answers'] = Answer.objects.filter(author_id=int(user_id)).select_related()
+    
+
     
     return render(request, "user.html", data)    
 

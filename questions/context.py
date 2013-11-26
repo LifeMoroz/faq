@@ -9,7 +9,7 @@ from django.conf import settings
 KEY = 'global_context'
 
 # cache ttl
-TTL = 10
+TTL = 60
 
 # number of users
 N = 10
