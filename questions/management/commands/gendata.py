@@ -72,27 +72,27 @@ def gen_question(user):
     date = time_gen()
     #solved = random.randint(0,1)
     rate = 0
-    q = Question(creation_time=date, content=text, title=title, author=user)
+    q = Question(creation_time=date, content=text, title=title, author_id=user)
     q.save()
     return q
     
 def gen_answer(question, user):
     text = text_gen(random.randint(100, 300))
-    a = Answer(question = question, author = user, content = text) 
+    a = Answer(question_id = question, author_id = user, content = text) 
     a.save()
     return a
     
 def gen_qvote(question, user):
     if random.randint(0, 1) == 0:
-        question.vote_up(user)
+        Question.objects.get(id=question).vote_up(QuestionsUser.objects.get(id=user))
     else:
-        question.vote_down(user)
+        Question.objects.get(id=question).vote_down(QuestionsUser.objects.get(id=user))
 
 def gen_avote(answer, user):
     if random.randint(0, 1) == 0:
-        answer.vote_up(user)
+        Answer.objects.get(id=answer).vote_up(QuestionsUser.objects.get(id=user))
     else:
-        answer.vote_down(user)
+        Answer.objects.get(id=answer).vote_down(QuestionsUser.objects.get(id=user))
     
 
 def insert_answer(cursor, id):
@@ -111,13 +111,23 @@ def insert_answer(cursor, id):
 class Command(BaseCommand):
     help = 'Generates testing data'
 
+    args = '[n]'
+
     def handle(self, *args, **options):
         users = []
         questions = []
         answers = []
         
+        N = 1000
+        
+        if len(args) == 1:
+            N = int(args[0])
+            
+        self.stdout.write('Generationg data for %s users' % N)
+        
         global WORDS
         WORDS = open('dict.txt').read().splitlines()
+        
         self.stdout.write('Word dictionary: %s words' % len(WORDS))
         
         self.stdout.write('Flushing')
@@ -126,36 +136,39 @@ class Command(BaseCommand):
         Answer.objects.all().delete()
         Vote.objects.all().delete()
         AnswerVote.objects.all().delete()
-        
-        for i in range(10000):
+      
+       
+        for i in range(N):
             u = gen_user()
-            users.append(u)
+            users.append(u.id)
             self.stdout.write('Generated %s users' % i)
-        for i in range(100000):
+            
+        for i in range(10 * N):
             u = random.choice(users)
             q = gen_question(u)
-            questions.append(q)
-            if not i % 100:
+            questions.append(q.id)
+            if not i % (N // 10):
                 self.stdout.write('Generated %s questions' % i)
-        for i in range(1000000):
+                
+        for i in range(100 * N):
             u = random.choice(users)
             q = random.choice(questions)
             a = gen_answer(q, u)
             if random.random() > 0.8:
                 a.accept(a.question.author)
                 a.save()
-            answers.append(a)
-            if not i % 100:
+            answers.append(a.id)
+            if not i % (N // 10):
                 self.stdout.write('Generated %s answers' % i)
                 
-        for i in range(1000000):
+        for i in range(100 * N):
             u = random.choice(users)
             a = random.choice(answers)
             q = random.choice(questions)
             gen_qvote(q, u)
             gen_avote(a, u)
 
-            if not i % 100:
+            if not i % (N // 10):
                 self.stdout.write('Generated %s votes' % (i*2))           
                 
                
