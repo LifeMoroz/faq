@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
@@ -28,7 +29,7 @@ CACHE_INVALIDATION = True
 
 TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = ['faq',]
+ALLOWED_HOSTS = ['faq', ]
 
 
 # Application definition

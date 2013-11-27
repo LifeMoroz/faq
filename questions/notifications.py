@@ -7,6 +7,7 @@ import json
 
 r = redis.StrictRedis(host='127.0.0.1')
 
+
 def _notify(url, title, author_id, question_id):
     """
     Create new Message and publish it
@@ -19,13 +20,13 @@ def _notify(url, title, author_id, question_id):
     m = Message(url=url, content=text, user_id=author_id)
     m.save()
 
+
 @receiver(post_save, sender=Answer)
 def _answer_create_listener(sender, instance, created, **kwargs):
-    
     if not settings.CACHE_INVALIDATION:
         return
-        
+
     if created:
         _notify(instance.get_absolute_url(),
-            instance.question.title,
-            instance.question.author.id, instance.question.id)
+                instance.question.title,
+                instance.question.author.id, instance.question.id)

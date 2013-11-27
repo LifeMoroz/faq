@@ -24,14 +24,14 @@ class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
         fields = ['title', 'content']
-        
+
+
 class AnswerForm(forms.ModelForm):
     content = forms.CharField(widget=forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Here your answer'}))
 
     class Meta:
         model = Question
-        fields = ['content', ]        
-
+        fields = ['content', ]
 
 
 class UserCreationForm(forms.ModelForm):

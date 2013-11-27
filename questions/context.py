@@ -1,4 +1,3 @@
-
 # coding=utf8
 from questions.models import QuestionsUser
 from django.core.cache import cache
@@ -21,32 +20,29 @@ def _update():
     """
     Updates global RequestContext data
     """
-    
+
     context = {
-            'questionform': QuestionForm(),
-            'project_name': 'There is no spoon',
-            'last_users': QuestionsUser.objects.select_related('user').all()[:N]
+        'questionform': QuestionForm(),
+        'project_name': 'There is no spoon',
+        'last_users': QuestionsUser.objects.select_related('user').all()[:N]
     }
-    
+
     # save to cache
     cache.set(KEY, context, TTL)
     return context
-    
+
+
 @receiver(post_save, sender=QuestionsUser)
 def _user_create_listener(sender, instance, created, **kwargs):
-    
     if not settings.CACHE_INVALIDATION:
         return
     if created:
-        _update()     
-    
+        _update()
+
 
 def glob(request):
-    
     context = cache.get(KEY)
-    if context is None:  
+    if context is None:
         context = _update()
-        
-    
 
     return context
