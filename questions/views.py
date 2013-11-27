@@ -7,10 +7,11 @@ from questions.forms import LoginForm, Register, QuestionForm, AnswerForm
 from shorthands import json
 from django.template.loader import render_to_string
 from django.template import RequestContext
-from pagination import get_page
 from models import Question, QuestionsUser, Answer, Message, AbstractVote
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.models import User
+
+# register notifications signals:
 import notifications
 
 
@@ -47,14 +48,7 @@ def index(request):
     query = Question.objects.all()
     # TODO: Raw SQL
 
-    user = request.user
-    question_user = QuestionsUser.objects.filter(user=user)
 
-    # check if questionsUser exists
-    if len(question_user) == 1:
-        u = question_user[0]
-        m = Message.objects.filter(user_id=u.id)
-        data['messages'] = m
 
     # paginator realization
 
@@ -120,8 +114,14 @@ def ask(request):
     if request.method != 'POST':
         return HttpResponseForbidden()
 
+    tag_list = request.POST.get('tags', '').split(',')
+
+    if '' in tag_list:
+        tag_list.remove('')
+
     form = QuestionForm(request.POST)
     data['questionform'] = form
+    data['form_tags'] = tag_list
 
     if form.is_valid():
         user = request.user
@@ -136,7 +136,11 @@ def ask(request):
         content = form.cleaned_data['content']
 
         q = Question(author=question_user[0], title=title, content=content)
+
         q.save()
+
+        # adding tags after save to have id
+        q.add_tags(tag_list)
 
         return json({'status': 'ok', 'url': q.get_absolute_url()})
 

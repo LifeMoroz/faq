@@ -21,13 +21,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SECRET_KEY = 'bv)j+r8)n@ee91)@t!qjl0@(txl9epm1h+v9^rvzfa0*e(#^b$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # Cache invalidation on save signals
 # DISABLE THIS ON DAtA GENERATION
 CACHE_INVALIDATION = True
 
-TEMPLATE_DEBUG = True
+TEMPLATE_DEBUG = False
 
 ALLOWED_HOSTS = ['faq', ]
 
@@ -44,6 +44,7 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'questions',
     'debug_toolbar',
+    'tagging',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -77,7 +78,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 CACHES = {
     'default': {
         "BACKEND": "redis_cache.cache.RedisCache",
-        "LOCATION": "127.0.0.1:6379:1",
+        "LOCATION": "127.0.0.1:6379:0",
         "OPTIONS": {
             "CLIENT_CLASS": "redis_cache.client.DefaultClient",
         }

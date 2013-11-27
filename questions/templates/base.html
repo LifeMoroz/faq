@@ -13,10 +13,15 @@
 
     <!-- project css -->
     <link rel="stylesheet" href="{% static "css/style.css" %}">
+
+    <!-- tagit -->
+
+    <link rel="stylesheet" href="{% static "css/jquery-ui.css" %}">
+    <link rel="stylesheet" href="{% static "css/jquery.tagit.css" %}">
 </head>
 <body>
 <!-- Static navbar -->
-<div class="navbar navbar-default navbar-static-top" role="navigation">
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
     <div class="container">
         <div class="navbar-header">
             <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
@@ -29,8 +34,8 @@
         </div>
         <div class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-                <li {% if active == "index"%} class="active"{% endif %}><a href="/">New</a></li>
-                <li {% if active == "popular"%} class="active"{% endif %}><a href="/popular">Popular</a></li>
+                <li {% if active == "index" %} class="active"{% endif %}><a href="/">New</a></li>
+                <li {% if active == "popular" %} class="active"{% endif %}><a href="/popular">Popular</a></li>
                 {% if user.is_authenticated %}
                     <li class="ask-button"><a href="#ask" data-toggle="modal" data-target="#ask">Ask</a></li>
                 {% endif %}
@@ -40,8 +45,10 @@
                     <li><a href="#">{{ user.username }}</a></li>
                     <li><a href="/logout"><span class="glyphicon glyphicon-log-out"></span> logout</a></li>
                 {% else %}
-                    <li><a href="/register{% if not noredirect %}?redirect={{ request.get_full_path }}{% endif %}"><span class="glyphicon glyphicon-check"></span> register</a></li>
-                    <li><a href="/login{% if not noredirect %}?redirect={{ request.get_full_path }}{% endif %}"><span class="glyphicon glyphicon-log-in"></span> login</a></li>
+                    <li><a href="/register{% if not noredirect %}?redirect={{ request.get_full_path }}{% endif %}"><span
+                            class="glyphicon glyphicon-check"></span> register</a></li>
+                    <li><a href="/login{% if not noredirect %}?redirect={{ request.get_full_path }}{% endif %}"><span
+                            class="glyphicon glyphicon-log-in"></span> login</a></li>
                 {% endif %}
             </ul>
         </div>
@@ -50,30 +57,37 @@
 </div>
 
 
-<div class="container">
+<div class="container" id="content">
     <div class="row">
         <div class="col-md-9">
-        {% for message in messages %}
-<div class="alert alert-warning alert-dismissable message" data-dismiss_url="{{ message.dismiss_url }}">
-  <button type="button" data-url="{{ message.url }}"
-  class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
-  <a href="{{ message.url }}">{{ message.content }}</a>
-</div>
-{% endfor %}
 
-        {% block content %}{% endblock %}
+            {% block content %}{% endblock %}
         </div>
+
         <div class="col-md-3">
             <div class="panel panel-default">
                 <div class="panel-heading">last users</div>
                 <div class="panel-conent">
-                <ul>
-                {% for user in last_users %}
-                  <li>
-                    <a href="{{ user.get_absolute_url }}">{{ user.username }}</a>
-                  </li>
-                {% endfor %}
-                </ul>
+                    <ul>
+                        {% for user in last_users %}
+                            <li>
+                                <a href="{{ user.get_absolute_url }}">{{ user.username }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">Top tags</div>
+                <div class="panel-conent">
+                    <ul>
+                        {% for tag in tags_top %}
+                            <li>
+                                {{ tag }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -102,67 +116,105 @@
 </div>
 <!-- /container -->
 
-
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
 <script src="{% static "js/jquery-1.10.2.min.js" %}" type="text/javascript"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <script src="{% static "js/bootstrap.js" %}"></script>
 
+
+<!-- tagging plugin -->
+<script src="{% static "js/jquery-ui.min.js" %}" type="text/javascript"></script>
+<script src="{% static "js/tag-it.min.js" %}" type="text/javascript"></script>
+
+<!-- notifications plugin -->
+<script type="text/javascript" src="{% static "js/noty/jquery.noty.js" %}"></script>
+<script type="text/javascript" src="{% static "js/noty/layouts/top.js" %}"></script>
+<script type="text/javascript" src="{% static "js/noty/layouts/topLeft.js" %}"></script>
+<script type="text/javascript" src="{% static "js/noty/layouts/topRight.js" %}"></script>
+<script type="text/javascript" src="{% static "js/noty/layouts/bottomRight.js" %}"></script>
+<script type="text/javascript" src="{% static "js/noty/themes/default.js" %}"></script>
+
+
 <script type="text/javascript">
-    // using jQuery
-    function getCookie(name) {
-        var cookieValue = null;
-        if (document.cookie && document.cookie != '') {
-            var cookies = document.cookie.split(';');
-            for (var i = 0; i < cookies.length; i++) {
-                var cookie = jQuery.trim(cookies[i]);
-                // Does this cookie string begin with the name we want?
-                if (cookie.substring(0, name.length + 1) == (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
+
+    function notify(message, url, dismiss_url) {
+        noty({text: message, 'layout': 'topLeft', 'type': 'success', 'callback': {
+            'onClose': function () {
+                // dismiss
+                $.post(dismiss_url, {'csrfmiddlewaretoken': csrftoken}, function (data) {
+                    if (data.status == 'ok')
+                        console.log('Message dismissed!');
+                    console.log(data);
+                });
+
+                location.href = url;
             }
-        }
-        return cookieValue;
+        }});
     }
-    var csrftoken = getCookie('csrftoken');
-    
-    $('#ask_form_button').click(function () {
-        $.post('/ask', $('form#ask_form').serialize(), function (data) {
-                    if (data.status == 'ok') {
-                        window.location.replace(data.url);
-                    } else {
-                        $('#ask_form_html').html(data.html);
-                    }
-                }
-        );
+
+
+    var all_tags = [];
+    all_tags = {{ tags_json|safe}};
+    function register_tags() {
+        $("#question_tags").tagit({availableTags: all_tags, autocomplete: {delay: 0, minLength: 2}});
+    }
+    $(document).ready(function () {
+        register_tags();
     });
 
-    $('.votelink').click(function(e) {
-        e.preventDefault();
-        var url = $(this).data('link');
-        var rating = $(this).parents('div').find('.rating-value');
-        $.post(url, {'csrfmiddlewaretoken': csrftoken}, function(data) {
-            if (data.status == 'ok' && data.action != 'vote')
-                location.reload();
-            
-            console.log(data);
-            // change rating without 
-            // todo: notifications on error
-            if (data.action == 'vote')
-                rating.html(data.rating);
-        });
-    });
-    
-    $('.message').bind('closed.bs.alert', function () {
-        var url = $(this).data('dismiss_url');
-        $.post(url, {'csrfmiddlewaretoken': csrftoken}, function(data) {
-            if (data.status == 'ok')
-                console.log('Message dismissed!')
-            console.log(data);
-        });        
-    })
-   
+
+    {% for message in messages %}
+        // {{ message.dismiss_url }}
+        notify("{{ message.content }}", "{{message.url}}", "{{ message.dismiss_url }}");
+    {% endfor %}
 </script>
+
+<script src="http://cdn.sockjs.org/sockjs-0.3.min.js"></script>
+
+
+<script>
+    var sub_json = false;
+    {% if question %}
+        sub_json = JSON.stringify({
+            'data_type': 'sub',
+            'data': {
+                'channel': '{{ question.get_channel }}'
+            }
+        });
+    {% elif self_user %}
+        sub_json = JSON.stringify({
+            'data_type': 'sub',
+            'data': {
+                'channel': '{{ self_user.get_channel }}'
+            }
+        });
+    {% endif %}
+
+    if (sub_json != false) {
+        var sock = new SockJS('/realtime/');
+        sock.onopen = function () {
+            console.log('open');
+            sock.send(sub_json);
+        };
+        sock.onmessage = function (e) {
+            var data = jQuery.parseJSON(e.data);
+            console.log('message', data);
+            if ('content' in data)
+                notify(data['content'], data['url'], data['dismiss_url'])
+        };
+        sock.onclose = function () {
+            console.log('close');
+        };
+    }
+
+</script>
+
+
+<!-- main application js code -->
+<script src="{% static "js/questions.js" %}" type="text/javascript"></script>
+
+{% block js %}
+{% endblock %}
+
 </body>
 </html>

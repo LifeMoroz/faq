@@ -1,7 +1,8 @@
 # coding=utf-8
 from django.db import models
 from django.contrib.auth.models import User
-import tags
+from tagging import tags
+from questions.management.commands.realtime import QUESTION_CHAN_PREF, USER_CHAN_PREF, REALTIME_PREF, UPDATES_TAG
 
 
 def _url(*args):
@@ -152,8 +153,32 @@ class Message(models.Model):
     def dismiss_url(self):
         return _url(self.URL_PREFIX, str(self.id), self.ACTION_DISMISS)
 
+
+class Taggable(models.Model):
+    URL_PREFIX = None
+
+    class Meta:
+        abstract = True
+
+    def tags(self):
+        t = tags.get_tags(self.URL_PREFIX, self.id)
+        data = []
+        for tag in t:
+            data.append({'title': tag, 'url': _url('tag', tag)})
+        return data
+
+    def add_tag(self, tag):
+        tags.add_tag(self.URL_PREFIX, self.id, tag)
+
+    def remove_tag(self, tag):
+        tags.remove_tag(self.URL_PREFIX, self.id, tag)
+
+    def add_tags(self, tag_list):
+        tags.add_tags(self.URL_PREFIX, self.id, tag_list)
+
+
 # Вопрос – заголовок, содержание, автор, дата создания
-class Question(AbstractRated):
+class Question(AbstractRated, Taggable):
     URL_PREFIX = AbstractVote.MODEL_QUESTION
     title = models.CharField(max_length=256)
     creation_time = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -165,16 +190,6 @@ class Question(AbstractRated):
 
     class Meta:
         ordering = ['-creation_time', ]
-
-    def tags(self):
-        return tags.get_tags(self.URL_PREFIX, self.id)
-
-    def add_tag(self, tag):
-        tags.add_tag(self.URL_PREFIX, self.id, tag)
-
-    def remove_tag(self, tag):
-        tags.remove_tag(self.URL_PREFIX, self.id, tag)
-
 
     def __unicode__(self):
         return self.title
@@ -193,6 +208,9 @@ class Question(AbstractRated):
         answer.save()
         self.answer = answer
         self.save()
+
+    def get_channel(self):
+        return ':'.join([QUESTION_CHAN_PREF, str(self.id), UPDATES_TAG])
 
 
 # Ответ – содержание, вопрос, автор, дата написания, флаг правильного ответа.
@@ -215,9 +233,9 @@ class Answer(AbstractRated):
     def get_absolute_url(self):
         return self.question.get_absolute_url()
 
-
     def accept(self, user):
         return self.question.accept(self, user)
+
 
 # Пользователь – электронная почта, никнейм, пароль, дата регистрации.
 # никнейм, пароль, электронная почта уже являются полями
@@ -241,6 +259,9 @@ class QuestionsUser(models.Model):
     def __unicode__(self):
         return self.user.username
 
+    def get_channel(self):
+        return ':'.join([USER_CHAN_PREF, str(self.id), UPDATES_TAG])
+
 
 class AbstractComment(models.Model):
     URL_PREFIX = 'c'
@@ -263,8 +284,3 @@ class QuestionComment(models.Model):
 
 class AnswerComment(models.Model):
     model_name = 'Answer'
-    
-
-    
-    
-    

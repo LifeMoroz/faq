@@ -13,7 +13,13 @@
       </div>
       <div class="row">
           <div class="pull-right author">by <a href="{{ question.author.url }}">{{ question.author.username }}</a> at {{ question.creation_time }}</div>
-          <div class="pull-left">tags: {% for tag in question.tags %}{{tag}}; {% endfor %}</div>
+          {%  if question.tags %}<div class="pull-left tags">
+              tags:
+              {% for tag in question.tags %}
+                  <span class="label label-default tag"><a href="{{ tag.url }}">{{tag.title}}</a></span>
+              {% endfor %}
+              </div>
+          {% endif %}
       </div>
 
   </div>

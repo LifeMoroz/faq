@@ -91,7 +91,7 @@ if __name__ == '__main__':
     app = web.Application(Router.urls)
     app.listen(os.environ.get("PORT", 6500))
     ioloop.IOLoop.instance().start()
-
+    
 class Command(BaseCommand):
     help = 'Generates testing data'
 
@@ -102,9 +102,9 @@ class Command(BaseCommand):
         c = tornadoredis.Client()
         c.connect()
         c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
-
+    
         Router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
-
+    
         app = web.Application(Router.urls)
         app.listen(os.environ.get("PORT", 6500))
         ioloop.IOLoop.instance().start()

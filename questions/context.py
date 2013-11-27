@@ -1,10 +1,12 @@
 # coding=utf8
-from questions.models import QuestionsUser
+from questions.models import QuestionsUser, Message
 from django.core.cache import cache
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.conf import settings
 from questions.forms import QuestionForm
+from tagging import tags
+import json
 
 # caching key
 KEY = 'global_context'
@@ -22,7 +24,6 @@ def _update():
     """
 
     context = {
-        'questionform': QuestionForm(),
         'project_name': 'There is no spoon',
         'last_users': QuestionsUser.objects.select_related('user').all()[:N]
     }
@@ -44,5 +45,19 @@ def glob(request):
     context = cache.get(KEY)
     if context is None:
         context = _update()
+
+    user = request.user
+    question_user = QuestionsUser.objects.filter(user_id=user.id)
+
+    # check if questionsUser exists
+    if len(question_user) == 1:
+        u = question_user[0]
+        m = Message.objects.filter(user_id=u.id)
+        context['messages'] = m
+        context['self_user'] = question_user[0]
+
+    context['tags'] = tags.get_all_tags()
+    context['tags_json'] = json.dumps(context['tags'])
+    context['tags_top'] = tags.get_top()
 
     return context

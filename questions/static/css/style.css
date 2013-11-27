@@ -32,3 +32,16 @@ h4, h5 {
 .author {
     margin-right: 5px;
 }
+
+
+.tags {
+    margin-left: 5px;
+}
+
+.tag {
+    margin-right: 2px;
+}
+
+#content {
+    margin-top: 60px;
+}

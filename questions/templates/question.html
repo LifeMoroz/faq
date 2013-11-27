@@ -127,3 +127,25 @@
 {% endif %}
 
 {% endblock %}
+
+
+{% block js %}
+<script type="text/javascript">
+     //notify("{{ message.content }}", "{{message.url}}", "{{ message.dismiss_url }}");
+
+    // from http://techoctave.com/c7/posts/60-simple-long-polling-example-with-javascript-and-jquery
+    // tutorial
+
+    (function poll(){
+
+    var question_url = "{{ question.get_channel_url }}";
+    console.log('Start polling', question_url);
+    $.ajax({ url: "{{ question.get_channel_url }}", success: function(data){
+        //Update your dashboard gauge
+        console.log('Recieved:', data);
+        notify(data['content'], data['url'], data['dismiss_url']);
+
+    }, dataType: "json", complete: poll, timeout: 30000 });
+    })();
+</script>
+{% endblock %}

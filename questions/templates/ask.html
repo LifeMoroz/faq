@@ -15,4 +15,15 @@
 
         <div class="col-sm-10">{{ questionform.content }}</div>
     </div>
+    <div class="form-group">
+        <label for="inputText" class="col-sm-2 control-label">Tags</label>
+        <div class="col-sm-10">
+            <ul id="question_tags" class="tagit">
+                <!-- Existing list items will be pre-added to the tags -->
+                {% for tag in form_tags %}
+                <li>{{ tag }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
 </form>
