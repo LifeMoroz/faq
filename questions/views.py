@@ -292,7 +292,7 @@ def vote(request, vote_action, vote_model, model_id):
     elif vote_action == AbstractVote.ACTION_ACCEPT:
         m.accept(question_user)    
 
-    return json({'status': 'ok'})
+    return json({'status': 'ok', 'rating': m.rating, 'action': 'vote'})
 
 
 def register(request):

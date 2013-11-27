@@ -5,7 +5,7 @@
         <span class="glyphicon glyphicon-chevron-up"></span>
     </a> 
     {% endif %}
-    <a href="#" data-link="{{ model.get_vote_down_url }}" title="Cancel vote" 
+    <a href="#" data-link="{{ model.get_vote_cancel_url }}" title="Cancel vote" 
     class="btn btn-default 
     {% if user.is_authenticated %} votelink{% else %} disabled{%endif %}">
     <span class="badge">{{ model.rating }}</span></a>

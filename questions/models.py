@@ -3,6 +3,12 @@ from django.db import models
 from django.contrib.auth.models import User
 import tags
 
+
+def _url(*args):
+    url = '/'
+    return url + '/'.join(args)
+
+
 class AbstractVote(models.Model):
     model = None
     URL_PREFIX = 'v'
@@ -89,7 +95,7 @@ class AbstractRated(models.Model):
         vote_slug = self.vote_class.URL_PREFIX
         model_slug = self.URL_PREFIX
         model_id = str(self.id)
-        return '/'.join([vote_slug, action, model_slug, model_id])     
+        return _url(vote_slug, action, model_slug, model_id)     
 
     def get_vote_up_url(self):
         return self._get_vote_url(self.vote_class.ACTION_UP)
@@ -110,7 +116,7 @@ class AbstractRated(models.Model):
         return self.vote(user, 0)
    
     def get_absolute_url(self):
-        return '/'.join([self.URL_PREFIX, str(self.id)])
+        return _url(self.URL_PREFIX, str(self.id))
     
         
             
@@ -141,7 +147,7 @@ class Message(models.Model):
     creation_time = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def dismiss_url(self):
-        return '/'.join([self.URL_PREFIX, str(self.id), self.ACTION_DISMISS])
+        return _url(self.URL_PREFIX, str(self.id), self.ACTION_DISMISS)
 
 # Вопрос – заголовок, содержание, автор, дата создания
 class Question(AbstractRated):
@@ -227,7 +233,7 @@ class QuestionsUser(models.Model):
         ordering = ['-registration_time']
         
     def get_absolute_url(self):
-        return '/'.join([self.URL_PREFIX, str(self.id)])
+        return _url(self.URL_PREFIX, str(self.id))
         
     def username(self):
         return self.user.username

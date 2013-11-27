@@ -8,7 +8,7 @@
     <a href="#" data-link="{{ model.get_vote_cancel_url }}" title="Cancel vote" 
     class="btn btn-default 
     {% if user.is_authenticated %} votelink{% else %} disabled{%endif %}">
-    <span class="badge">{{ model.rating }}</span></a>
+    <span class="badge rating-value">{{ model.rating }}</span></a>
     {% if user.is_authenticated %}
     <a href="#" data-link="{{ model.get_vote_down_url }}" title="Vote down" 
     class="btn-success btn votelink">
