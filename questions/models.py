@@ -34,7 +34,6 @@ class AbstractVote(models.Model):
         abstract = True
         
 class AbstractRated(models.Model):
-    creation_time = models.DateTimeField(auto_now_add=True, db_index=True)
     rating = models.IntegerField(default=0, db_index=True)    
     author = models.ForeignKey('QuestionsUser', db_index = True)
     vote_class = AbstractVote
@@ -132,6 +131,7 @@ class Message(models.Model):
     URL_PREFIX = 'm'
     ACTION_DISMISS = 'dismiss'
     ACTIONS = (ACTION_DISMISS, )
+    
     class Meta:
         ordering = ['creation_time', ]
         
@@ -147,6 +147,7 @@ class Message(models.Model):
 class Question(AbstractRated):
     URL_PREFIX = AbstractVote.MODEL_QUESTION
     title = models.CharField(max_length=256)
+    creation_time = models.DateTimeField(auto_now_add=True, db_index=True)
     content = models.TextField(max_length=1024)
     answer = models.ForeignKey('Answer', null=True, blank=True, related_name='+')
     views = models.PositiveIntegerField(default=0)
