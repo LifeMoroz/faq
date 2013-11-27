@@ -153,6 +153,15 @@
             console.log(data);
         });
     });
+    
+    $('.message').bind('closed.bs.alert', function () {
+        var url = $(this).data('dismiss_url');
+        $.post(url, {'csrfmiddlewaretoken': csrftoken}, function(data) {
+            if (data.status == 'ok')
+                console.log('Message dismissed!')
+            console.log(data);
+        });        
+    })
    
 </script>
 </body>

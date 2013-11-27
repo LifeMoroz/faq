@@ -8,16 +8,30 @@ from shorthands import json
 from django.template.loader import render_to_string
 from django.template import RequestContext
 from pagination import get_page
-from models import Question, QuestionsUser, Answer
+from models import Question, QuestionsUser, Answer, Message, AbstractVote
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.models import User
-# Create your views here.
+import notifications
 
 
 ORDERING_RATING = '-rating'
 ORDERING_TYPES = (ORDERING_RATING, )
 
-
+def question_to_dic(q):
+    data = {}
+    data['title'] = q.title
+    data['url'] = q.get_absolute_url()
+    data['author'] = {'url': q.author.get_absolute_url(),
+                    'username': q.author.user.username}
+    data['tags'] = q.tags()
+    data['rating'] = q.rating
+    data['creation_time'] = q.creation_time
+    data['get_vote_up_url'] = q.get_vote_up_url()
+    data['get_vote_down_url'] = q.get_vote_down_url()
+    data['get_vote_cancel_url'] = q.get_vote_cancel_url()
+    
+    return data
+    
 def index(request):
     """
     Index page with new questions
@@ -30,6 +44,15 @@ def index(request):
     # get all questions
     query = Question.objects.all()
     # TODO: Raw SQL
+
+    user = request.user
+    question_user = QuestionsUser.objects.filter(user=user)
+
+    # check if questionsUser exists
+    if len(question_user) == 1:
+        u = question_user[0]
+        m = Message.objects.filter(user_id=u.id)
+        data['messages'] = m
     
     # paginator realization
     
@@ -43,6 +66,7 @@ def index(request):
     except EmptyPage:
         page = paginator.page(paginator.num_pages)
     
+    page.object_list = map(question_to_dic, page.object_list)
     data['questions'] = page
     
     # active page title (for header)
@@ -218,28 +242,20 @@ def user(request, user_id):
     return render(request, "user.html", data)    
 
 # VOTE API CONSTANTS
-VOTE_UP = 'up'
-VOTE_DOWN = 'down'
-VOTE_CANCEL = 'cancel'
-VOTE_ACCEPT = 'accept'
-VOTE_MODEL_QUESTION = 'question'
-VOTE_MODEL_ANSWER = 'answer'
-VOTE_MODELS = (VOTE_MODEL_QUESTION, VOTE_MODEL_ANSWER)
-VOTE_TYPES = (VOTE_UP, VOTE_DOWN, VOTE_CANCEL, VOTE_ACCEPT)
-
+# see models.AbstractVote
 
 # VOTES API VIEW
-def vote(request, vote_type, vote_model, model_id):
+def vote(request, vote_action, vote_model, model_id):
     """
     Api for votes and answer acceptions
     """
     if request.method != 'POST':
         return HttpResponseForbidden()
     
-    if vote_type not in VOTE_TYPES:
+    if vote_action not in AbstractVote.ACTIONS:
         return HttpResponseNotFound()
         
-    if vote_model not in VOTE_MODELS:
+    if vote_model not in AbstractVote.MODELS:
         return HttpResponseNotFound()
         
     user = request.user
@@ -252,9 +268,9 @@ def vote(request, vote_type, vote_model, model_id):
     
     model = None
     
-    if vote_model == VOTE_MODEL_QUESTION:
+    if vote_model == AbstractVote.MODEL_QUESTION:
         model = Question
-    elif vote_model == VOTE_MODEL_ANSWER:
+    elif vote_model == AbstractVote.MODEL_ANSWER:
         model = Answer         
     
     if not model:
@@ -267,13 +283,13 @@ def vote(request, vote_type, vote_model, model_id):
         
     m = m[0]
 
-    if vote_type == VOTE_UP:
+    if vote_action == AbstractVote.ACTION_UP:
         m.vote_up(question_user)
-    elif vote_type == VOTE_DOWN:
+    elif vote_action == AbstractVote.ACTION_DOWN:
         m.vote_down(question_user)
-    elif vote_type == VOTE_CANCEL:
+    elif vote_action == AbstractVote.ACTION_CANCEL:
         m.cancel_vote(question_user)
-    elif vote_type == VOTE_ACCEPT:
+    elif vote_action == AbstractVote.ACTION_ACCEPT:
         m.accept(question_user)    
 
     return json({'status': 'ok'})
@@ -367,3 +383,32 @@ def logout(request):
     """
     auth_logout(request)
     return redirect(index)
+
+MESSAGE_ACTION_DISMISS = 'dismiss'
+MESSAGE_ACTIONS = (MESSAGE_ACTION_DISMISS, )    
+
+def message(request, m_id, action):
+    """
+    Message api
+    """
+    # check method
+    if request.method != 'POST':
+        return HttpResponseForbidden('Only POST requests')
+    
+    # check action name
+    if action not in Message.ACTIONS:
+        return HttpResponseNotFound('Wrong action "%s"' % action)
+    
+    # check message existance    
+    m = Message.objects.filter(id=int(m_id))
+    if not m:
+        return HttpResponseNotFound('Message with id=%s not found' % m_id)
+    m = m[0]
+    
+    if action == Message.ACTION_DISMISS:
+        m.delete()
+        return json({'status': 'ok'})
+        
+    return HttpResponseNotFound('Action %s not implemented' % action)    
+    
+    

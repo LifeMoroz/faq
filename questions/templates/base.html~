@@ -132,7 +132,8 @@
         return cookieValue;
     }
     var csrftoken = getCookie('csrftoken');
-        $('#ask_form_button').click(function () {
+    
+    $('#ask_form_button').click(function () {
         $.post('/ask', $('form#ask_form').serialize(), function (data) {
                     if (data.status == 'ok') {
                         window.location.replace(data.url);
@@ -152,6 +153,16 @@
             console.log(data);
         });
     });
+    
+    $('.message').bind('closed.bs.alert', function () {
+        console.log($(this).data('dismiss_url'));
+        var url = $(this).data('dismiss_url');
+        $.post(url, {'csrfmiddlewaretoken': csrftoken}, function(data) {
+            if (data.status == 'ok')
+                console.log('Message dismissed!')
+            console.log(data);
+        });        
+    })
    
 </script>
 </body>
