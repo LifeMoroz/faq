@@ -29,7 +29,7 @@ CACHE_INVALIDATION = True
 
 TEMPLATE_DEBUG = False
 
-ALLOWED_HOSTS = ['faq', ]
+ALLOWED_HOSTS = ['faq', 'faq.cygame.ru']
 
 
 # Application definition
