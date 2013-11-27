@@ -1,3 +1,4 @@
+
 # coding=utf8
 from questions.models import QuestionsUser
 from django.core.cache import cache
@@ -34,7 +35,7 @@ def _update():
 @receiver(post_save, sender=QuestionsUser)
 def _user_create_listener(sender, instance, created, **kwargs):
     
-    if settings.CACHE_INVALIDATION:
+    if not settings.CACHE_INVALIDATION:
         return
     if created:
         _update()     
@@ -44,6 +45,8 @@ def glob(request):
     
     context = cache.get(KEY)
     if context is None:  
-        context = _invalidate()
+        context = _update()
+        
+    
 
     return context
