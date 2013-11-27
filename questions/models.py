@@ -117,7 +117,9 @@ class AbstractRated(models.Model):
    
     def get_absolute_url(self):
         return _url(self.URL_PREFIX, str(self.id))
-    
+
+    def get_accept_url(self):
+        return self._get_vote_url(self.vote_class.ACTION_ACCEPT)    
         
             
 class Vote(AbstractVote):
@@ -212,8 +214,7 @@ class Answer(AbstractRated):
     def get_absolute_url(self):
         return self.question.get_absolute_url()
             
-    def get_accept_url(self):
-        return self.vote_class._get_vote_url(self.vote_class.ACTION_ACCEPT)
+
             
         
     def accept(self, user):
@@ -241,3 +242,29 @@ class QuestionsUser(models.Model):
     def __unicode__(self):
         return self.user.username
 
+
+class AbstractComment(models.Model):
+    URL_PREFIX = 'c'
+    
+    class Meta:
+        abstract = True
+    
+    user = models.OneToOneField(User, db_index=True)
+    content = models.TextField(max_length=512)
+    model_name = 'self'
+    model = models.ForeignKey(model_name, related_name='comments')
+    
+    def __unicode__(self):
+        return self.content[:80]
+    
+    
+class QuestionComment(models.Model):
+    model_name = 'Question'
+    
+class AnswerComment(models.Model):
+    model_name = 'Answer'
+    
+
+    
+    
+    

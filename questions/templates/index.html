@@ -2,14 +2,6 @@
 
 {% block content %}
 
-{% for message in messages %}
-<div class="alert alert-warning alert-dismissable message" data-dismiss_url="{{ message.dismiss_url }}">
-  <button type="button" data-url="{{ message.url }}"
-  class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
-  <a href="{{ message.url }}">{{ message.content }}</a>
-</div>
-{% endfor %}
-
 {% for question in questions %}
 <div class="panel panel-default">
   <div class="panel-body">

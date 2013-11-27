@@ -283,6 +283,10 @@ def vote(request, vote_action, vote_model, model_id):
         
     m = m[0]
 
+    data = {}
+    data['action'] = 'vote'
+    data['status'] = 'ok'
+    
     if vote_action == AbstractVote.ACTION_UP:
         m.vote_up(question_user)
     elif vote_action == AbstractVote.ACTION_DOWN:
@@ -291,8 +295,11 @@ def vote(request, vote_action, vote_model, model_id):
         m.cancel_vote(question_user)
     elif vote_action == AbstractVote.ACTION_ACCEPT:
         m.accept(question_user)    
+        data['action'] = 'accept'
+        
+    data['rating'] = m.rating
 
-    return json({'status': 'ok', 'rating': m.rating, 'action': 'vote'})
+    return json(data)
 
 
 def register(request):

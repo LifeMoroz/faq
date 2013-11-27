@@ -46,5 +46,7 @@ def glob(request):
     context = cache.get(KEY)
     if context is None:  
         context = _update()
+        
+    
 
     return context
