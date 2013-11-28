@@ -11,13 +11,22 @@ from models import Question, QuestionsUser, Answer, Message, AbstractVote
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.models import User
 
+import sphinxsearch
+
 # register notifications signals:
 import notifications
+
+def search(request, query):
+    q = sphinxsearch.SphinxClient().Query(query)
+    matches = q['matches']
+
+
+
+
 
 
 ORDERING_RATING = '-rating'
 ORDERING_TYPES = (ORDERING_RATING, )
-
 
 def question_to_dic(q):
     data = {}
