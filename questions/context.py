@@ -56,8 +56,6 @@ def glob(request):
         context['messages'] = m
         context['self_user'] = question_user[0]
 
-    context['tags'] = tags.get_all_tags()
-    context['tags_json'] = json.dumps(context['tags'])
     context['tags_top'] = tags.get_top()
 
     return context

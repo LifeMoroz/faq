@@ -16,6 +16,19 @@ import sphinxsearch
 # register notifications signals:
 import notifications
 
+
+def tags_autocomplete(requesst):
+    if requesst.method != 'GET':
+        return HttpResponseForbidden('Bad method')
+
+    if not 'term' in requesst.GET:
+        return HttpResponseNotFound('No term')
+
+    term = requesst.GET['term']
+
+    pass
+
+
 def search(request, query):
     q = sphinxsearch.SphinxClient().Query(query)
     matches = q['matches']
@@ -92,7 +105,7 @@ def popular(request):
     ordering = ORDERING_RATING
 
     # get questions ordered by rating
-    query = Question.objects.order_by(ordering)
+    query = Question.objects.order_by(ordering).select_related()
     # TODO: Raw SQL
 
     # pagination

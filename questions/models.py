@@ -41,6 +41,10 @@ class AbstractVote(models.Model):
         abstract = True
 
 
+
+
+
+
 class AbstractRated(models.Model):
     rating = models.IntegerField(default=0, db_index=True)
     author = models.ForeignKey('QuestionsUser', db_index=True)
@@ -59,7 +63,7 @@ class AbstractRated(models.Model):
             return
 
         # search for previous votes
-        v = self.vote_class.objects.all().filter(author=user, model=self)
+        v = self.vote_class.objects.all().filter(author_id=user.id, model_id=self.id)
 
         # removing previous votes
         if len(v) != 0:
@@ -194,8 +198,8 @@ class Question(AbstractRated, Taggable):
     def __unicode__(self):
         return self.title
 
-    def accept(self, answer, user):
-        if self.author != user:
+    def accept(self, answer, user_id):
+        if self.author.id != user_id:
             return # TODO: Process error        
 
         if answer.question != self:

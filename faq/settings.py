@@ -21,13 +21,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SECRET_KEY = 'bv)j+r8)n@ee91)@t!qjl0@(txl9epm1h+v9^rvzfa0*e(#^b$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # Cache invalidation on save signals
 # DISABLE THIS ON DAtA GENERATION
-CACHE_INVALIDATION = True
+CACHE_INVALIDATION = False
 
-TEMPLATE_DEBUG = False
+TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = ['faq', 'faq.cygame.ru']
 
