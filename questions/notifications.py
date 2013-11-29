@@ -26,7 +26,7 @@ def _notify(url, title, author_id, autor_email, question_id):
 
     # разные сообщени автору и тем, кто на странице вопроса
     text_author = 'Your question "%s" has new answer!' % title
-    text_other = 'Question %s has new answer!'
+    text_other = 'Question %s has new answer!' % title
 
     # создание сообщения для оффлайн-нотификаций
     # проверка на то, что уже есть такое сообщение
