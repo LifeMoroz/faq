@@ -22,7 +22,7 @@
               </div>
           {% endif %}
       <div class="col-xs-4 pull-right">
-          by <a href="{{ question.author.url }}">{{ question.author.username }}</a> at {{ question.creation_time }} <br>
+          by <a href="{{ question.author.get_absolute_url }}">{{ question.author.username }}</a> at {{ question.creation_time }} <br>
           views: <span class="badge">{{ question.get_visits }}</span>
       </div>
 

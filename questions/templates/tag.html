@@ -16,7 +16,7 @@
           {%  if question.tags %}<div class="col-xs-8">
               tags:
               {% for tag in question.tags %}
-                  <a href="{{ tag.url }}">{{tag.title}}</a>
+                  <a href="{{ tag.url }}">>{{tag.title}}</a>
               {% endfor %}
               </div>
           {% endif %}
