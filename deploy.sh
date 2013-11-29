@@ -1,6 +1,8 @@
 #!/bin/bash
 echo 'Deploying faq'
 # sudo apt-get update
+sudo debconf-set-selections <<< 'mysql-server-<version> mysql-server/root_password password ""'
+sudo debconf-set-selections <<< 'mysql-server-<version> mysql-server/root_password_again password ""'
 sudo apt-get install python-pip python-dev mysql-server apache2 libmysqlclient-dev nginx -y
 easy_install -U distribute
 pip install virtualenv
