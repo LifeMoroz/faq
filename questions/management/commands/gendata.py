@@ -1,31 +1,31 @@
 # -*- coding: utf-8 -*-
-import sys
-from django.core.management.base import BaseCommand, CommandError
-
 import random
-from random import randrange
 import string
+import time
 from time import gmtime, strftime
-import datetime
+import MySQLdb as mysqldb
+import redis
+
+from django.core.management.base import BaseCommand
+from django.conf import settings
 from questions.models import *
 from django.contrib.auth.models import User
-import urllib
 import tagging.tags
-from django.db import connection
+import questions.visits as visits
 
-WORDS = ['load', 'error']
+words = ['load', 'error']
 
 
 def string_gen(size=6, chars=string.ascii_uppercase + string.digits):
-    return ''.join(random.choice(chars) for x in range(size))
+    return ''.join(random.choice(chars) for _ in range(size))
 
 
 def text_gen(size=128):
-    f = random.choice(WORDS).capitalize()
+    f = random.choice(words).capitalize()
     tail = [f]
     n = len(f) + 1
     while n < size:
-        word = random.choice(WORDS).lower()
+        word = random.choice(words).lower()
         if (n + len(word)) > size:
             break
         tail.append(word)
@@ -40,7 +40,7 @@ def time_gen():
 
 
 def email_gen(size=7, chars=string.ascii_lowercase + string.digits + '_'):
-    return ''.join(random.choice(chars) for x in range(size)) \
+    return 'testnoemails_' + ''.join(random.choice(chars) for x in range(size)) \
            + '@%s' % random.choice(['mail.ru', 'yandex.ru', 'gmail.com',
                                     'yahoo.com', 'bk.ru', 'ya.ru'])
 
@@ -61,58 +61,120 @@ def gen_question(user):
     title = text_gen(random.randint(50, 128)) + '?'
     text = text_gen(random.randint(256, 800))
     date = time_gen()
+    views = random.randint(0, 1000)
     q = Question(creation_time=date, content=text, title=title, author_id=user)
     q.save()
+    visits.set_visits(Question.URL_PREFIX, q.id, views)
     return q
 
 
-def vote_fast(model, vote_class, user_id, diff, votes):
+def accept_fast(conn, answer_id, question_id, answered_questions):
+    if question_id in answered_questions:
+        return
+
+    cursor = conn.cursor()
+    cursor.execute("UPDATE questions_answer SET correct = true WHERE id = '{0}'".format(answer_id))
+    cursor.execute("UPDATE questions_question SET answer_id = {0} WHERE id = '{1}'".format(answer_id, question_id))
+    answered_questions.append(question_id)
+
+
+def vote_fast(conn, model, vote_class, user_id, diff, votes):
     """
     Fast vote generation method
     """
-    conn = connection.cursor()
-    # mysql_query("UPDATE table SET field = field + 1 WHERE id = $number");
+
+    cursor = conn.cursor()
 
     # пропускаем ненужные проверочки
     # не голосуем одним юзером за одну вещь дважды
-    try:
-        if any(v['user_id'] == user_id
-                and v['model_id'] == model['id']
-                and v['table'] == model['table']
-               for v in votes):
-            return
-    except TypeError:
-        print votes
-        exit(-1)
+
+    if any(v['user_id'] == user_id
+           and v['model_id'] == model['id']
+           for v in votes):
+        return
+
     # генерируем объект
-    v = vote_class.objects.create(model_id=model['id'], author_id=user_id, difference=diff)
-    v.save()
+    # v = vote_class.objects.create(model_id=model['id'], author_id=user_id, difference=diff)
+    # v.save()
+
+    cursor.execute("INSERT INTO {0} (model_id, author_id, difference) VALUES ({1}, {2}, {3})"
+                   .format(vote_class._meta.db_table, model['id'], user_id, diff))
+    v_id = conn.insert_id()
 
     # изменяем рейтинг модели
-    conn.execute("UPDATE questions_{0} SET rating = rating + {1} WHERE id = {2}"
-        .format(model['table'], diff, model['id']))
+    cursor.execute("UPDATE questions_{0} SET rating = rating + {1} WHERE id = {2}"
+                   .format(model['table'], diff, model['id']))
     author_diff = vote_class.POSITIVE_IMPACT
     if diff == -1:
         author_diff = vote_class.NEGATIVE_IMPACT
-    conn.execute("UPDATE questions_questionsuser SET rating = rating + {1} WHERE id = {0}"
-        .format(author_diff, diff))
+    cursor.execute("UPDATE questions_questionsuser SET rating = rating + {1} WHERE id = {0}"
+                   .format(model['author_id'], author_diff))
 
-    return {'model_id': model['id'], 'id': v.id, 'user_id': user_id, 'table': model['table']}
+    return {'model_id': model['id'], 'id': v_id, 'user_id': user_id}
 
 
-def gen_answer(question, user):
+def gen_answer(conn, question, user):
+    cursor = conn.cursor()
     text = text_gen(random.randint(100, 300))
-    a = Answer(question_id=question, author_id=user, content=text)
-    a.save()
-    return a
+    # a = Answer(question_id=question, author_id=user, content=text)
+    # a.save()
+    cursor.execute("INSERT INTO {0} (question_id, author_id, content, correct, rating) "
+                   "VALUES ('{1}', '{2}', '{3}', false, 0)"
+                   .format(Answer._meta.db_table, question, user, text))
+    a_id = conn.insert_id()
+    return a_id
 
 
-def gen_qvote(question, user_id, votes):
-    return vote_fast(question, Question.vote_class, user_id, random.choice([1, -1]), votes)
+def gen_qvote(conn, question, user_id, votes):
+    return vote_fast(conn, question, Question.vote_class, user_id, random.choice([1, -1]), votes)
 
 
-def gen_avote(answer, user_id, votes):
-    return vote_fast(answer, Answer.vote_class, user_id, random.choice([1, -1]), votes)
+def gen_avote(conn, answer, user_id, votes):
+    return vote_fast(conn, answer, Answer.vote_class, user_id, random.choice([1, -1]), votes)
+
+
+def user_generator(users):
+    u = gen_user()
+    users.append(u.id)
+
+
+def questions_generator(users, questions):
+    u = random.choice(users)
+    q = gen_question(u)
+    questions.append({'id': q.id, 'author_id': u, 'table': 'question'})
+
+
+def answers_generator(conn, users, questions, answers):
+    answered_questions = []
+    u = random.choice(users)
+    q = random.choice(questions)
+    a_id = gen_answer(conn, q['id'], u)
+
+    if random.random() > 0.8:
+        accept_fast(conn, a_id, q['id'], answered_questions)
+
+    answers.append({'author_id': u, 'question': q, 'id': a_id, 'table': 'answer'})
+
+
+def tag_generator(questions, all_tags):
+    q_id = random.choice(questions)['id']
+    tagging.tags.add_tag(Question.URL_PREFIX, q_id, random.choice(all_tags))
+
+
+def votesa_generator(conn, users, answers, votes):
+    u = random.choice(users)
+    a = random.choice(answers)
+    v = gen_avote(conn, a, u, votes)
+    if v:
+        votes.append(v)
+
+
+def votesq_generator(conn, users, questions, votes):
+    u = random.choice(users)
+    q = random.choice(questions)
+    v = gen_qvote(conn, q, u, votes)
+    if v:
+        votes.append(v)
 
 
 class Command(BaseCommand):
@@ -120,75 +182,100 @@ class Command(BaseCommand):
 
     args = '[n]'
 
+    def __init__(self):
+        self.log_rate = 100
+        super(Command, self).__init__()
+
+    def generate(self, count, generator, name, *args, **kwargs):
+        start = time.time()
+        op_start = time.time()
+        self.stdout.write('Generating {0:>5} {1:<15}'.format(count, name))
+        for i in range(count):
+            generator(*args, **kwargs)
+            if not i % self.log_rate and i != 0:
+                elapsed = time.time() - start
+                start = time.time()
+                self.stdout.write('Generated {0:>6} {1:<15} {2:.2f} op/s'.format(i, name, self.log_rate / elapsed))
+
+                if not i % (self.log_rate * 10):
+                    self.stdout.write('{0:>3}% ETA: {1:.2f} s'
+                        .format((100. * i / count), (count - i) / (self.log_rate / elapsed)))
+
+        elapsed = time.time() - op_start
+        self.stdout.write('Generated {0:>6} {1:<15} {2:.2f} op/sec'.format(count, name, count / elapsed))
+
     def handle(self, *args, **options):
         users = []
         questions = []
         answers = []
-
-        N = 1000
+        a_votes = []
+        q_votes = []
+        user_count = 1000
 
         if len(args) == 1:
-            N = int(args[0])
+            user_count = int(args[0])
 
-        self.stdout.write('Generationg data for %s users' % N)
+        global words
+        words = open('dict.txt').read().splitlines(False)
 
-        global WORDS
-        WORDS = open('dict.txt').read().splitlines()
+        user = settings.DATABASES['default']['USER']
+        password = settings.DATABASES['default']['PASSWORD']
+        db = settings.DATABASES['default']['NAME']
+        connection = mysqldb.connect(user=user, passwd=password, db=db)
 
-        self.stdout.write('Word dictionary: %s words' % len(WORDS))
+        self.stdout.write('Word dictionary: %s words' % len(words))
+        self.stdout.write('Removing...')
 
-        self.stdout.write('Flushing')
         QuestionsUser.objects.all().delete()
+        self.stdout.write('Removed users')
         Question.objects.all().delete()
+        self.stdout.write('Removed questions')
         Answer.objects.all().delete()
+        self.stdout.write('Removed answers')
         Vote.objects.all().delete()
+        self.stdout.write('Removed votes')
         AnswerVote.objects.all().delete()
+        self.stdout.write('Removed answers')
+        Message.objects.all().delete()
+        c = redis.StrictRedis()
+        c.flushdb()
+        self.stdout.write('Removed tags and notifications')
 
-        for i in range(N):
-            u = gen_user()
-            users.append(u.id)
-            self.stdout.write('Generated %s users' % i)
+        # рассчет количества элементов
+        question_count = user_count * 10
+        answer_count = question_count * 10
+        tag_count = 120
+        likes_count = answer_count * 2
+        votes_questions = int((1. * question_count / (question_count + answer_count)) * likes_count)
+        votes_answers = int((1. * answer_count / (question_count + answer_count)) * likes_count)
+        tag_linked = likes_count
+        comment_count = answer_count
 
-        for i in range(10 * N):
-            u = random.choice(users)
-            q = gen_question(u)
-            questions.append({'id': q.id, 'author_id': u, 'table': 'question'})
-            if not i % (N // 10):
-                self.stdout.write('Generated %s questions' % i)
+        # список тегов
+        tag_list = random.sample(words, tag_count)
 
-        for i in range(100 * N):
-            u = random.choice(users)
-            q = random.choice(questions)
-            a = gen_answer(q['id'], u)
-            if random.random() > 0.8:
-                a.accept(q['author_id'])
-                a.save()
-            answers.append({'author_id': u, 'question': q, 'id': a.id, 'table': 'answer'})
-            if not i % (N // 10):
-                self.stdout.write('Generated %s answers' % i)
+        # вывод на экран количество элементов
+        self.stdout.write('Data generation:')
+        for k, v in [('users', user_count),
+                     ('questions', question_count),
+                     ('answers', answer_count),
+                     ('tags', tag_count),
+                     ('votes', likes_count),
+                     ('comments', comment_count)]:
+            self.stdout.write('{0:<10} = {1:>10}'.format(k, v))
 
-        for i in range(100 * N):
-            q_id = random.choice(questions)['id']
-            tagging.tags.add_tag(Question.URL_PREFIX, q_id, random.choice(WORDS))
-            if not i % (N // 10):
-                self.stdout.write('Generated %s tags' % i)
+        time.sleep(1.5)
 
-        votes = []
+        # генерация данных
+        self.generate(user_count, user_generator, 'users', users)
+        self.generate(question_count, questions_generator, 'questions',  users, questions)
+        self.generate(answer_count, answers_generator, 'answers', connection, users, questions, answers)
+        self.generate(tag_linked, tag_generator, 'tags', questions, tag_list)
+        self.generate(votes_questions, votesq_generator, 'questions votes', connection, users, questions, q_votes)
+        self.generate(votes_answers, votesa_generator, 'answers votes', connection, users, answers, a_votes)
 
-        for i in range(100 * N):
-            u = random.choice(users)
-            a = random.choice(answers)
-            q = random.choice(questions)
-            v = gen_qvote(q, u, votes)
-            if v:
-                votes.append(v)
-            v = gen_avote(a, u, votes)
-            if v:
-                votes.append(v)
+        self.stdout.write('OK')
 
-            if not i % (N // 10):
-                self.stdout.write('Generated %s votes' % (i * 2))
-                
                
             
         

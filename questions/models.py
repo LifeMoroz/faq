@@ -2,7 +2,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from tagging import tags
-from questions.management.commands.realtime import QUESTION_CHAN_PREF, USER_CHAN_PREF, REALTIME_PREF, UPDATES_TAG
+import visits
+from questions.management.commands.realtime import QUESTION_CHAN_PREF, USER_CHAN_PREF, UPDATES_TAG
 
 
 def _url(*args):
@@ -39,13 +40,12 @@ class AbstractVote(models.Model):
 
     class Meta:
         abstract = True
-
-
-
-
+        # slows down data generation
+        # unique_together = ['author', 'model']
 
 
 class AbstractRated(models.Model):
+
     rating = models.IntegerField(default=0, db_index=True)
     author = models.ForeignKey('QuestionsUser', db_index=True)
     vote_class = AbstractVote
@@ -200,21 +200,32 @@ class Question(AbstractRated, Taggable):
 
     def accept(self, answer, user_id):
         if self.author.id != user_id:
-            return # TODO: Process error        
+            return  # TODO: Process error
 
         if answer.question != self:
-            return # TODO: Process error
+            return  # TODO: Process error
 
         if self.answer:
-            return # TODO: Process error
+            return  # TODO: Process error
 
         answer.correct = True
         answer.save()
         self.answer = answer
         self.save()
 
+    # канал обновлений
     def get_channel(self):
         return ':'.join([QUESTION_CHAN_PREF, str(self.id), UPDATES_TAG])
+
+    # просмотры
+    def get_visits(self):
+        v = visits.get_visits(self.URL_PREFIX, self.id)
+        if not v:
+            v = 0
+        return v
+
+    def visit(self):
+        visits.visit(self.URL_PREFIX, self.id)
 
 
 # Ответ – содержание, вопрос, автор, дата написания, флаг правильного ответа.

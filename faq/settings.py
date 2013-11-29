@@ -21,11 +21,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SECRET_KEY = 'bv)j+r8)n@ee91)@t!qjl0@(txl9epm1h+v9^rvzfa0*e(#^b$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 # Cache invalidation on save signals
 # DISABLE THIS ON DAtA GENERATION
-CACHE_INVALIDATION = False
+CACHE_INVALIDATION = True
 
 TEMPLATE_DEBUG = True
 
@@ -73,8 +73,17 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     'django.core.context_processors.request',
 )
 
-# CACHE BACKEND
 
+# EMAIL NOTIFICATIONS
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_HOST_USER = 'faq@cygame.ru'
+EMAIL_HOST_PASSWORD = 'password12345'
+EMAIL_LINKS_BASE = 'http://faq.cygame.ru'
+EMAIL_FROM = 'faq@cygame.ru'
+EMAIL_PORT = 25
+
+
+# CACHE BACKEND (REDIS)
 CACHES = {
     'default': {
         "BACKEND": "redis_cache.cache.RedisCache",
@@ -85,11 +94,22 @@ CACHES = {
     }
 }
 
-# SESSIONS 
+# REDIS SESSIONS
 SESSION_ENGINE = 'redis_sessions.session'
 SESSION_REDIS_HOST = 'localhost'
 SESSION_REDIS_PORT = 6379
 SESSION_REDIS_PREFIX = 'faqsession'
+
+
+
+
+if not DEBUG:
+    TEMPLATE_LOADERS = (
+        ('django.template.loaders.cached.Loader', (
+            'django.template.loaders.filesystem.Loader',
+            'django.template.loaders.app_directories.Loader',
+        )),
+    )
 
 
 # Database

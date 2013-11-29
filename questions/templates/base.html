@@ -154,7 +154,6 @@
 
 
     var all_tags = [];
-    all_tags = {{ tags_json|safe}};
     function register_tags() {
         $("#question_tags").tagit({availableTags: all_tags, autocomplete: {delay: 0, minLength: 2}});
     }

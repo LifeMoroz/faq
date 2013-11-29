@@ -34,13 +34,6 @@ def search(request, query):
     matches = q['matches']
 
 
-
-
-
-
-ORDERING_RATING = '-rating'
-ORDERING_TYPES = (ORDERING_RATING, )
-
 def question_to_dic(q):
     data = {}
     data['title'] = q.title
@@ -53,8 +46,12 @@ def question_to_dic(q):
     data['get_vote_up_url'] = q.get_vote_up_url()
     data['get_vote_down_url'] = q.get_vote_down_url()
     data['get_vote_cancel_url'] = q.get_vote_cancel_url()
+    data['get_visits'] = q.get_visits()
 
     return data
+
+ORDERING_RATING = '-rating'
+ORDERING_TYPES = (ORDERING_RATING, )
 
 
 def index(request):
@@ -70,10 +67,7 @@ def index(request):
     query = Question.objects.all()
     # TODO: Raw SQL
 
-
-
     # paginator realization
-
     paginator = Paginator(query, 20)
     page_number = request.GET.get('page', '1')
 
@@ -119,6 +113,8 @@ def popular(request):
     except EmptyPage:
         page = paginator.page(paginator.num_pages)
 
+    data['questions'] = page
+    page.object_list = map(question_to_dic, page.object_list)
     data['questions'] = page
 
     # active page title
@@ -184,14 +180,13 @@ def question(request, question_id):
     # new answer form
     data['form'] = AnswerForm()
 
-
     # optimized question query
     q = Question.objects.filter(id=int(question_id)).select_related('author',
                                                                     'author__user', 'author__user_username',
                                                                     'author__user_id', 'answer',
                                                                     'answer__author', 'answer__author__user__username',
                                                                     'answer__author__user__id',
-    )
+                                                                    )
 
     # check if question exists
     if len(q) == 0:
@@ -238,6 +233,7 @@ def question(request, question_id):
 
             # redirect to question page
             return redirect(q.get_absolute_url())
+    q.visit()
 
     return render(request, "question.html", data)
 
@@ -247,12 +243,9 @@ def user(request, user_id):
     User page
     """
 
-    data = {}
+    data = {'active': 'user'}
 
-    # active page title
-    data['active'] = 'user'
-
-    # useer query
+    # user query
     u = QuestionsUser.objects.filter(id=int(user_id)).values('id', 'user__username')
 
     if len(u) == 0:
@@ -268,8 +261,6 @@ def user(request, user_id):
 
     return render(request, "user.html", data)
 
-# VOTE API CONSTANTS
-# see models.AbstractVote
 
 # VOTES API VIEW
 def vote(request, vote_action, vote_model, model_id):
@@ -321,6 +312,7 @@ def vote(request, vote_action, vote_model, model_id):
     elif vote_action == AbstractVote.ACTION_CANCEL:
         m.cancel_vote(question_user)
     elif vote_action == AbstractVote.ACTION_ACCEPT:
+        #noinspection PyArgumentList
         m.accept(question_user)
         data['action'] = 'accept'
 
