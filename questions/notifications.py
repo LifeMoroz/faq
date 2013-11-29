@@ -1,7 +1,7 @@
 # coding=utf-8
 import json
 from redis_cache import get_redis_connection
-from models import Answer, QuestionsUser, Message
+from models import Answer, Message
 
 # обработка событий
 from django.dispatch import receiver

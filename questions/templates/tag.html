@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ count }} question(s) with tag "{{ tag }}":</h1>
+
+{% for question in questions %}
+<div class="panel panel-default">
+  <div class="panel-body">
+      <div class="row">
+        <div class="col-xs-1">
+        {% include "rating.html" with model=question %}
+        </div>
+      <div class="col-xs-11"><a href="{{ question.url }}"><h3>{{ question.title }}</h3></a></div>
+      </div>
+      <div class="row">
+          {%  if question.tags %}<div class="col-xs-8">
+              tags:
+              {% for tag in question.tags %}
+                  <a href="{{ tag.url }}">{{tag.title}}</a>
+              {% endfor %}
+              </div>
+          {% endif %}
+      <div class="col-xs-4 pull-right">
+          by <a href="{{ question.author.url }}">{{ question.author.username }}</a> at {{ question.creation_time }} <br>
+          views: <span class="badge">{{ question.get_visits }}</span>
+      </div>
+
+      </div>
+  </div>
+</div>
+{% endfor %}
+
+{% if questions.paginator.num_pages != 1 %}
+<ul class="pager">
+    {% if questions.has_previous %}
+        <li class="previous">
+        <a href="?page={{ questions.previous_page_number }}">&larr; Previous</a>
+        </li>
+    {% else %}
+        <li class="previous disabled">
+        <a href="#">&larr; Previous</a>
+        </li>
+    {% endif %}
+
+    <li class="disabled">
+        <a href="#">
+            Page {{ questions.number }} of {{ questions.paginator.num_pages }}
+        </a>
+    </li>
+    {% if questions.has_next %}
+        <li class="next">
+        <a href="?page={{ questions.next_page_number }}">Next &rarr;</a>
+        </li>
+    {% else %}
+        <li class="next disabled">
+        <a href="#">Next &rarr;</a>
+        </li>
+    {% endif %}
+</ul>
+{% endif %}
+{% endblock %}

@@ -1,8 +1,9 @@
+# coding=utf-8
 from django.shortcuts import render, redirect
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login
-from django.http import Http404, HttpResponseForbidden, HttpResponseNotFound, HttpResponse
+from django.http import Http404, HttpResponseForbidden, HttpResponseNotFound
 from questions.forms import LoginForm, Register, QuestionForm, AnswerForm
 from shorthands import json
 from django.template.loader import render_to_string
@@ -10,6 +11,7 @@ from django.template import RequestContext
 from models import Question, QuestionsUser, Answer, Message, AbstractVote
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.models import User
+import tagging.tags
 
 import sphinxsearch
 
@@ -17,16 +19,19 @@ import sphinxsearch
 import notifications
 
 
-def tags_autocomplete(requesst):
-    if requesst.method != 'GET':
+def tags_autocomplete(request):
+    """
+    Tags autocomplete handler
+    Returns all tags that start with term
+    """
+    if request.method != 'GET':
         return HttpResponseForbidden('Bad method')
 
-    if not 'term' in requesst.GET:
-        return HttpResponseNotFound('No term')
+    if not 'term' in request.GET:
+        return HttpResponseNotFound('404: No term')
 
-    term = requesst.GET['term']
-
-    pass
+    term = request.GET['term']
+    return json(tagging.tags.get_starts(term))
 
 
 def search(request, query):
@@ -35,6 +40,9 @@ def search(request, query):
 
 
 def question_to_dic(q):
+    """
+    Converts question orm object to dictionary
+    """
     data = {}
     data['title'] = q.title
     data['url'] = q.get_absolute_url()
@@ -50,8 +58,38 @@ def question_to_dic(q):
 
     return data
 
+
+def question_from_id(question_id):
+    q = Question.objects.get(id=question_id)
+    return question_to_dic(q)
+
 ORDERING_RATING = '-rating'
 ORDERING_TYPES = (ORDERING_RATING, )
+
+
+def tag_page(request, tag):
+    # May cause performance problems
+    # on very large tag linkage count
+    # т.е. переделать если будет слишком тормозить
+    questions = tagging.tags.get_models(Question.URL_PREFIX, tag)
+    questions = map(int, questions)
+    count = len(questions)
+
+    paginator = Paginator(list(questions), 10)
+    page_number = request.GET.get('page', '1')
+
+    try:
+        page = paginator.page(page_number)
+    except PageNotAnInteger:
+        page = paginator.page(1)
+    except EmptyPage:
+        page = paginator.page(paginator.num_pages)
+    print page.object_list
+
+    page.object_list = map(question_from_id, page.object_list)
+
+    return render(request, "tag.html",
+                  {'questions': page, 'tag': tag, 'count': count})
 
 
 def index(request):
@@ -162,7 +200,8 @@ def ask(request):
 
         return json({'status': 'ok', 'url': q.get_absolute_url()})
 
-    return json({'status': 'error', 'html': render_to_string("ask.html", RequestContext(request, data))})
+    return json({'status': 'error', 'html':
+                render_to_string("ask.html", RequestContext(request, data))})
 
 
 def question(request, question_id):
@@ -181,12 +220,13 @@ def question(request, question_id):
     data['form'] = AnswerForm()
 
     # optimized question query
-    q = Question.objects.filter(id=int(question_id)).select_related('author',
-                                                                    'author__user', 'author__user_username',
-                                                                    'author__user_id', 'answer',
-                                                                    'answer__author', 'answer__author__user__username',
-                                                                    'answer__author__user__id',
-                                                                    )
+    q = Question.objects.filter(id=int(question_id))\
+        .select_related('author',
+                        'author__user', 'author__user_username',
+                        'author__user_id', 'answer',
+                        'answer__author', 'answer__author__user__username',
+                        'answer__author__user__id',
+                        )
 
     # check if question exists
     if len(q) == 0:
@@ -196,7 +236,9 @@ def question(request, question_id):
 
     # get all answers
     query = q.answers.all().select_related('author',
-                                           'author__user', 'author__user_username', 'author__user_id')
+                                           'author__user',
+                                           'author__user_username',
+                                           'author__user_id')
 
     # pagination
     paginator = Paginator(query, 30)
@@ -246,7 +288,8 @@ def user(request, user_id):
     data = {'active': 'user'}
 
     # user query
-    u = QuestionsUser.objects.filter(id=int(user_id)).values('id', 'user__username')
+    u = QuestionsUser.objects.filter(id=int(user_id)).values('id',
+                                                             'user__username')
 
     if len(u) == 0:
         raise Http404
@@ -256,8 +299,10 @@ def user(request, user_id):
     data['question_user'] = u
 
     # answers and questions
-    data['questions'] = Question.objects.filter(author_id=int(user_id)).select_related()
-    data['answers'] = Answer.objects.filter(author_id=int(user_id)).select_related()
+    data['questions'] = Question.objects.filter(
+        author_id=int(user_id)).select_related()
+    data['answers'] = Answer.objects.filter(
+        author_id=int(user_id)).select_related()
 
     return render(request, "user.html", data)
 
@@ -353,7 +398,9 @@ def register(request):
             username = form.cleaned_data['username']
 
             if not data['incorrect']:
-                user = User.objects.create_user(email=email, password=password, username=username)
+                user = User.objects.create_user(email=email,
+                                                password=password,
+                                                username=username)
                 user.save()
 
                 q_user = QuestionsUser(user=user)
@@ -380,8 +427,7 @@ def login(request):
     login page
     """
     data = {'incorrect': False, 'disabled': False,
-            'active': 'login', 'noredirect': True
-    }
+            'active': 'login', 'noredirect': True}
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -427,7 +473,7 @@ def message(request, m_id, action):
     if action not in Message.ACTIONS:
         return HttpResponseNotFound('Wrong action "%s"' % action)
 
-    # check message existance    
+    # check message existance
     m = Message.objects.filter(id=int(m_id))
     if not m:
         return HttpResponseNotFound('Message with id=%s not found' % m_id)
@@ -437,6 +483,4 @@ def message(request, m_id, action):
         m.delete()
         return json({'status': 'ok'})
 
-    return HttpResponseNotFound('Action %s not implemented' % action)    
-    
-    
+    return HttpResponseNotFound('Action %s not implemented' % action)

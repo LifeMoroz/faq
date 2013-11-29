@@ -15,5 +15,7 @@ urlpatterns = patterns('',
     url(r'^{0}/(\d+)$'.format(QuestionsUser.URL_PREFIX), 'questions.views.user'),
     url(r'^{0}/(\w+)/(\w+)/(\d+)$'.format(AbstractVote.URL_PREFIX), 'questions.views.vote'),
     url(r'^{0}/(\d+)/(\w+)$'.format(Message.URL_PREFIX), 'questions.views.message'),
+    url(r'^autocomplete', 'questions.views.tags_autocomplete'),
+    url(r'^tag/(\w+)$', 'questions.views.tag_page'),
     url(r'^admin/', include(admin.site.urls)),
 )
