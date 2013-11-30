@@ -24,7 +24,7 @@ SECRET_KEY = 'bv)j+r8)n@ee91)@t!qjl0@(txl9epm1h+v9^rvzfa0*e(#^b$'
 DEBUG = False
 
 # Cache invalidation on save signals
-# DISABLE THIS ON DAtA GENERATION
+# DISABLE THIS ON DATA GENERATION
 CACHE_INVALIDATION = True
 
 TEMPLATE_DEBUG = False
@@ -125,7 +125,7 @@ if not DEBUG:
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'faq_test',
+        'NAME': 'faq_db',
         'USER': 'root',
         'PASSWORD': '',
     }

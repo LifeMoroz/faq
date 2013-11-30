@@ -84,7 +84,6 @@ def tag_page(request, tag):
         page = paginator.page(1)
     except EmptyPage:
         page = paginator.page(paginator.num_pages)
-    print page.object_list
 
     page.object_list = map(question_from_id, page.object_list)
 

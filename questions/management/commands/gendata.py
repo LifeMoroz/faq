@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import random
 import string
 import time
@@ -13,7 +14,9 @@ from django.contrib.auth.models import User
 import tagging.tags
 import questions.visits as visits
 
-words = ['load', 'error']
+
+
+words = []
 
 
 def string_gen(size=6, chars=string.ascii_uppercase + string.digits):
@@ -120,7 +123,7 @@ def gen_answer(conn, question, user):
     # a.save()
     cursor.execute("INSERT INTO {0} (question_id, author_id, content, correct, rating) "
                    "VALUES ('{1}', '{2}', '{3}', false, 0)"
-                   .format(Answer._meta.db_table, question, user, text))
+                   .format('questions_answer', question, user, text))
     a_id = conn.insert_id()
     return a_id
 
@@ -183,26 +186,67 @@ class Command(BaseCommand):
     args = '[n]'
 
     def __init__(self):
-        self.log_rate = 100
+        # разница в секундах между отображением прогресса
+        self.log_rate = 0.7
         super(Command, self).__init__()
 
+    def clear(self, connection):
+        try:
+            self._clear(connection)
+        except mysqldb.OperationalError as e:
+            self.stdout.write('MySQL error: %s' % e)
+            self.stdout.write('Non recoverable error')
+
+    def _clear(self, connection):
+        cursor = connection.cursor()
+        self.stdout.write(u'Очистка БД...')
+        cursor.execute('SET FOREIGN_KEY_CHECKS=0')
+        cursor.execute('TRUNCATE TABLE questions_questionsuser')
+        # QuestionsUser.objects.all().delete()
+        self.stdout.write(u'Юзеры удалены')
+        cursor.execute('TRUNCATE TABLE questions_question')
+        # Question.objects.all().delete()
+        self.stdout.write(u'Вопросы удалены')
+        cursor.execute('TRUNCATE TABLE questions_answer')
+        # Answer.objects.all().delete()
+        self.stdout.write(u'Ответы удалены')
+        # Vote.objects.all().delete()
+        cursor.execute('TRUNCATE TABLE questions_vote')
+        # AnswerVote.objects.all().delete()
+        cursor.execute('TRUNCATE TABLE questions_answervote')
+        self.stdout.write(u'Лайки удалены')
+        #Message.objects.all().delete()
+        cursor.execute('TRUNCATE TABLE questions_message')
+        self.stdout.write(u'Сообщения удалены')
+        cursor.execute('SET FOREIGN_KEY_CHECKS=1')
+
+        c = redis.StrictRedis()
+        c.flushdb()
+        self.stdout.write(u'Риалтайм-нотификации и теги удалены')
+        self.stdout.write(u'Удаление успешно завершено')
+
     def generate(self, count, generator, name, *args, **kwargs):
+        """
+        Обертка над генераторами данных с удобным логом прогресса
+        """
         start = time.time()
+        i_start = 0
         op_start = time.time()
-        self.stdout.write('Generating {0:>5} {1:<15}'.format(count, name))
+        self.stdout.write(u'Генерация      {0:>5} {1:<16}'.format(count, name))
         for i in range(count):
             generator(*args, **kwargs)
-            if not i % self.log_rate and i != 0:
-                elapsed = time.time() - start
+            elapsed = time.time() - start
+            if elapsed > self.log_rate:
+                processed = i - i_start
+                i_start = i
                 start = time.time()
-                self.stdout.write('Generated {0:>6} {1:<15} {2:.2f} op/s'.format(i, name, self.log_rate / elapsed))
-
-                if not i % (self.log_rate * 10):
-                    self.stdout.write('{0:>3}% ETA: {1:.2f} s'
-                        .format((100. * i / count), (count - i) / (self.log_rate / elapsed)))
+                from_start = start - op_start
+                self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} op/s'.format(i, name, processed / elapsed))
+                self.stdout.write('{0:>3.0f}% ETA: {1:.2f} s'
+                    .format((100. * i / count), (count - i) / (i / from_start)))
 
         elapsed = time.time() - op_start
-        self.stdout.write('Generated {0:>6} {1:<15} {2:.2f} op/sec'.format(count, name, count / elapsed))
+        self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} op/sec'.format(count, name, count / elapsed))
 
     def handle(self, *args, **options):
         users = []
@@ -215,39 +259,46 @@ class Command(BaseCommand):
         if len(args) == 1:
             user_count = int(args[0])
 
+        # загрузка словаря
         global words
-        words = open('dict.txt').read().splitlines(False)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        dict_path = os.path.join(base_dir, 'data', 'dict.txt')
+        try:
+            words_file = open(dict_path)
+            words = words_file.read().splitlines(False)
+        except IOError:
+            words = []
+
+        if not words:
+            self.stderr.write(u'Словарь не найден в %s' % dict_path)
+            return
 
         user = settings.DATABASES['default']['USER']
         password = settings.DATABASES['default']['PASSWORD']
         db = settings.DATABASES['default']['NAME']
-        connection = mysqldb.connect(user=user, passwd=password, db=db)
 
-        self.stdout.write('Word dictionary: %s words' % len(words))
-        self.stdout.write('Removing...')
+        try:
+            connection = mysqldb.connect(user=user, passwd=password,
+                                         db=db)
+        except mysqldb.OperationalError as e:
+            self.stderr.write(u'Невозможно подключиться к БД: %s' % e[1])
+            if e[0] == 1049:
+                self.stderr.write(u'База данных не существует')
+            return
 
-        QuestionsUser.objects.all().delete()
-        self.stdout.write('Removed users')
-        Question.objects.all().delete()
-        self.stdout.write('Removed questions')
-        Answer.objects.all().delete()
-        self.stdout.write('Removed answers')
-        Vote.objects.all().delete()
-        self.stdout.write('Removed votes')
-        AnswerVote.objects.all().delete()
-        self.stdout.write('Removed answers')
-        Message.objects.all().delete()
-        c = redis.StrictRedis()
-        c.flushdb()
-        self.stdout.write('Removed tags and notifications')
+        self.stdout.write(u'Слов в словаре: %s' % len(words))
 
         # рассчет количества элементов
         question_count = user_count * 10
         answer_count = question_count * 10
         tag_count = 120
         likes_count = answer_count * 2
+
+        # распределяем лайки пропорционально количеству
+        # ответов и вопросов соответственно
         votes_questions = int((1. * question_count / (question_count + answer_count)) * likes_count)
         votes_answers = int((1. * answer_count / (question_count + answer_count)) * likes_count)
+
         tag_linked = likes_count
         comment_count = answer_count
 
@@ -255,25 +306,40 @@ class Command(BaseCommand):
         tag_list = random.sample(words, tag_count)
 
         # вывод на экран количество элементов
-        self.stdout.write('Data generation:')
-        for k, v in [('users', user_count),
-                     ('questions', question_count),
-                     ('answers', answer_count),
-                     ('tags', tag_count),
-                     ('votes', likes_count),
-                     ('comments', comment_count)]:
-            self.stdout.write('{0:<10} = {1:>10}'.format(k, v))
+        self.stdout.write(u'Будет сгенерировано:')
+        for k, v in [(u'пользователей', user_count),
+                     (u'вопросов', question_count),
+                     (u'ответов', answer_count),
+                     (u'связей тегов', tag_linked),
+                     (u'лайков', likes_count),
+                     (u'комментов', comment_count)]:
+            self.stdout.write(u'{0:<15} = {1:>8}'.format(k, v))
 
-        time.sleep(1.5)
+        try:
+            self.stdout.write(u'Нажмите Ctrl+C для отмены')
+            time.sleep(2)
+        except KeyboardInterrupt:
+            self.stdout.write(u'Генерация тестовых данных отменена')
+            self.stdout.write('OK')
+            return
+
+        self.clear(connection)
 
         # генерация данных
-        self.generate(user_count, user_generator, 'users', users)
-        self.generate(question_count, questions_generator, 'questions',  users, questions)
-        self.generate(answer_count, answers_generator, 'answers', connection, users, questions, answers)
-        self.generate(tag_linked, tag_generator, 'tags', questions, tag_list)
-        self.generate(votes_questions, votesq_generator, 'questions votes', connection, users, questions, q_votes)
-        self.generate(votes_answers, votesa_generator, 'answers votes', connection, users, answers, a_votes)
-
+        try:
+            self.generate(user_count, user_generator, u'пользователей', users)
+            self.generate(question_count, questions_generator, u'вопросов',  users, questions)
+            self.generate(answer_count, answers_generator, u'ответов', connection, users, questions, answers)
+            self.generate(tag_linked, tag_generator, u'тегов', questions, tag_list)
+            self.generate(votes_questions, votesq_generator, u'лайков вопросов', connection, users, questions, q_votes)
+            self.generate(votes_answers, votesa_generator, u'лайков ответов', connection, users, answers, a_votes)
+        except KeyboardInterrupt:
+            self.stderr.write(u'Генерация тестовых данных прервана. Очистка БД')
+            self.clear(connection)
+            return
+        except mysqldb.OperationalError as e:
+            self.stderr.write(u'Ошибка БД: %s' % e)
+            return
         self.stdout.write('OK')
 
                
