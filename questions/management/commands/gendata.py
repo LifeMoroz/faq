@@ -15,7 +15,7 @@ import tagging.tags
 import questions.visits as visits
 
 
-
+# TODO: убрать из глобальных переменных
 words = []
 
 
@@ -91,6 +91,8 @@ def vote_fast(conn, model, vote_class, user_id, diff, votes):
     # пропускаем ненужные проверочки
     # не голосуем одним юзером за одну вещь дважды
 
+    # вот эта проверка может тормозить
+    # TODO: optimize
     if any(v['user_id'] == user_id
            and v['model_id'] == model['id']
            for v in votes):
@@ -200,71 +202,125 @@ class Command(BaseCommand):
             exit(-1)
 
     def _clear(self, connection):
+        """
+        Очистка базы данных
+        @param connection: соединение с БД
+        """
+
         cursor = connection.cursor()
         self.stdout.write(u'Очистка БД...')
+
+        # убираем проверку на внешние ключи
+        # чтобы можно было все удалить
         cursor.execute('SET FOREIGN_KEY_CHECKS=0')
+
         cursor.execute('TRUNCATE TABLE questions_questionsuser')
         # QuestionsUser.objects.all().delete()
         self.stdout.write(u'Юзеры удалены')
+
         cursor.execute('TRUNCATE TABLE questions_question')
         # Question.objects.all().delete()
         self.stdout.write(u'Вопросы удалены')
+
         cursor.execute('TRUNCATE TABLE questions_answer')
         # Answer.objects.all().delete()
         self.stdout.write(u'Ответы удалены')
+
         # Vote.objects.all().delete()
         cursor.execute('TRUNCATE TABLE questions_vote')
         # AnswerVote.objects.all().delete()
         cursor.execute('TRUNCATE TABLE questions_answervote')
         self.stdout.write(u'Лайки удалены')
+
         #Message.objects.all().delete()
         cursor.execute('TRUNCATE TABLE questions_message')
         self.stdout.write(u'Сообщения удалены')
+
+        # возвращаем проверку
+        # (если не возвратим, то останется до конца соединения)
         cursor.execute('SET FOREIGN_KEY_CHECKS=1')
 
+        # удаляем все из редиски
         c = redis.StrictRedis()
         c.flushdb()
         self.stdout.write(u'Риалтайм-нотификации и теги удалены')
+
         self.stdout.write(u'Удаление успешно завершено')
 
     def generate(self, count, generator, name, *args, **kwargs):
         """
         Обертка над генераторами данных с удобным логом прогресса
+        @param count: количество элементов
+        @param generator: генератор
+        @param name: имя элемента (множ. число)
+        @param args: аргументы генератора
+        @param kwargs: key-аргументы генератора
         """
-        start = time.time()
-        i_start = 0
-        op_start = time.time()
+        last_time = time.time()
+        start_i = 0     # количество обработанных элементов
+        start_time = time.time()
         self.stdout.write(u'Генерация      {0:>5} {1:<16}'.format(count, name))
         for i in range(count):
+            # генерируем что-то, передавая параметры в генератор
             generator(*args, **kwargs)
-            elapsed = time.time() - start
-            if elapsed > self.log_rate:
-                processed = i - i_start
-                i_start = i
-                start = time.time()
-                from_start = start - op_start
-                self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} op/s'.format(i, name, processed / elapsed))
-                self.stdout.write('{0:>3.0f}% ETA: {1:.2f} s'
-                    .format((100. * i / count), (count - i) / (i / from_start)))
+            # время с последнего лога
+            elapsed = time.time() - last_time
 
-        elapsed = time.time() - op_start
-        self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} op/sec'.format(count, name, count / elapsed))
+            # выводим лог если прошло достаточно времени
+            if elapsed > self.log_rate:
+                # количество обработанных элементов с последнего раза
+                processed = i - start_i
+
+                # обновляем счетчики времени и кол-ва
+                start_i = i
+                last_time = time.time()
+                from_start = last_time - start_time
+                speed = processed / elapsed
+                speed_from_start = (count - i) / (i / from_start)
+                completed_percentage = (100. * i / count)
+
+                self.stdout.write(u'Сгенерировано {0:>6} {1:<16}'
+                                  u' {2:.2f} в секудну'.format(i, name, speed))
+                self.stdout.write('{0:>3.0f}% ETA: {1:.2f} s'
+                    .format(completed_percentage, speed_from_start))
+
+        # полное время выполнения
+        elapsed = time.time() - start_time
+        speed = count / elapsed
+        self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} в секудну'
+            .format(count, name, speed))
 
     def handle(self, *args, **options):
-        users = []
-        questions = []
-        answers = []
-        a_votes = []
-        q_votes = []
+        users = []      # список id-шников пользователей
+        questions = []  # список вопросов
+        answers = []    # список для ответов
+        a_votes = []    # лайки ответов
+        q_votes = []    # лайки вопросов
         user_count = 1000
 
         if len(args) == 1:
             user_count = int(args[0])
 
+        # проверка настроек
+        # в режиме отладки ORM сжирает много памяти
+        if settings.DEBUG:
+            self.stderr.write(u'В режиме отладки низкая производительность. Установите settings.DEBUG = False')
+            return
+
+        # а эта штука вообще создаст кучу ненужных сообщений
+        if settings.CACHE_INVALIDATION:
+            self.stderr.write(u'Ивалидация кеша и нотификации включены. \n'
+                              u'Установите settings.CACHE_INVALIDATION = False')
+            return
+
         # загрузка словаря
         global words
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
+        # словарь хранится в папке data
         dict_path = os.path.join(base_dir, 'data', 'dict.txt')
+
+        # проверим, вдруг кто его удалил
         try:
             words_file = open(dict_path)
             words = words_file.read().splitlines(False)
@@ -275,15 +331,20 @@ class Command(BaseCommand):
             self.stderr.write(u'Словарь не найден в %s' % dict_path)
             return
 
+        # загружаем настройки БД
         user = settings.DATABASES['default']['USER']
         password = settings.DATABASES['default']['PASSWORD']
         db = settings.DATABASES['default']['NAME']
 
+        # попытка коннекта к БД
         try:
             connection = mysqldb.connect(user=user, passwd=password,
                                          db=db)
         except mysqldb.OperationalError as e:
+            # что-то пошло не так
             self.stderr.write(u'Невозможно подключиться к БД: %s' % e[1])
+
+            # а тут мы точно знаем, что БД не существует
             if e[0] == 1049:
                 self.stderr.write(u'База данных не существует')
             return
@@ -305,6 +366,7 @@ class Command(BaseCommand):
         comment_count = answer_count
 
         # список тегов
+        # берем рандомные слова из словаря
         tag_list = random.sample(words, tag_count)
 
         # вывод на экран количество элементов
@@ -317,6 +379,7 @@ class Command(BaseCommand):
                      (u'комментов', comment_count)]:
             self.stdout.write(u'{0:<15} = {1:>8}'.format(k, v))
 
+        # позволяем нам проверить, все ли ок
         try:
             self.stdout.write(u'Нажмите Ctrl+C для отмены')
             time.sleep(2)
@@ -325,6 +388,7 @@ class Command(BaseCommand):
             self.stdout.write('OK')
             return
 
+        # очистка
         self.clear(connection)
 
         # генерация данных
@@ -332,10 +396,14 @@ class Command(BaseCommand):
             self.generate(user_count, user_generator, u'пользователей', users)
             self.generate(question_count, questions_generator, u'вопросов',  users, questions)
             self.generate(answer_count, answers_generator, u'ответов', connection, users, questions, answers)
+            connection.commit()
             self.generate(tag_linked, tag_generator, u'тегов', questions, tag_list)
             self.generate(votes_questions, votesq_generator, u'лайков вопросов', connection, users, questions, q_votes)
             self.generate(votes_answers, votesa_generator, u'лайков ответов', connection, users, answers, a_votes)
+            connection.commit()
         except KeyboardInterrupt:
+            # генерация прервана с клавиатуры
+            # очищаем базу данных
             self.stderr.write(u'Генерация тестовых данных прервана. Очистка БД')
             self.clear(connection)
             return
@@ -345,9 +413,3 @@ class Command(BaseCommand):
                 self.stderr.write(u'Таблица не найдена. Попробуйте python manage.py syncdb')
             return
         self.stdout.write('OK')
-
-               
-            
-        
-        
-
