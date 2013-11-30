@@ -200,6 +200,12 @@ class Command(BaseCommand):
             if e[0] == 1146:
                 self.stderr.write(u'Таблица не найдена. Попробуйте python manage.py syncdb')
             exit(-1)
+        except redis.RedisError as e:
+            self.stderr.write(u'Ошибка Redis: %s' % e)
+            if 'Connection refused' in e.args[0]:
+                self.stderr.write(u'Проверьте, запущен ли redis на порте %s' % settings.REDIS_PORT)
+            exit(-1)
+
 
     def _clear(self, connection):
         """
@@ -241,10 +247,10 @@ class Command(BaseCommand):
         cursor.execute('SET FOREIGN_KEY_CHECKS=1')
 
         # удаляем все из редиски
-        c = redis.StrictRedis()
+        c = redis.StrictRedis(port=settings.REDIS_PORT)
         c.flushdb()
         self.stdout.write(u'Риалтайм-нотификации и теги удалены')
-
+        connection.commit()
         self.stdout.write(u'Удаление успешно завершено')
 
     def generate(self, count, generator, name, *args, **kwargs):
@@ -280,14 +286,14 @@ class Command(BaseCommand):
                 completed_percentage = (100. * i / count)
 
                 self.stdout.write(u'Сгенерировано {0:>6} {1:<16}'
-                                  u' {2:.2f} в секудну'.format(i, name, speed))
+                                  u' {2:.2f} в секунду'.format(i, name, speed))
                 self.stdout.write('{0:>3.0f}% ETA: {1:.2f} s'
                     .format(completed_percentage, speed_from_start))
 
         # полное время выполнения
         elapsed = time.time() - start_time
         speed = count / elapsed
-        self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} в секудну'
+        self.stdout.write(u'Сгенерировано {0:>6} {1:<16} {2:.2f} в секунду'
             .format(count, name, speed))
 
     def handle(self, *args, **options):
