@@ -46,7 +46,11 @@ def glob(request):
     if context is None:
         context = _update()
 
-    user = request.user
+    context['tags_top'] = tags.get_top()
+    try:
+        user = request.user
+    except AttributeError:
+        return context
     question_user = QuestionsUser.objects.filter(user_id=user.id)
 
     # check if questionsUser exists
