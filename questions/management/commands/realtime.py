@@ -1,13 +1,10 @@
 # coding=utf-8
-from tornado import web, ioloop, options
-import tornado
-
-import daemonize
+from tornado import web, ioloop
 
 from sockjs.tornado import SockJSRouter, SockJSConnection
 import json
 import os
-import sys
+import threading
 import tornadoredis
 import signal
 import logging
@@ -28,6 +25,7 @@ UPDATES_TAG = 'updates'
 
 class Connection(SockJSConnection):
     clients = set()
+    channels = set()
 
     def send_message(self, message, data_type):
         """
@@ -53,7 +51,6 @@ class Connection(SockJSConnection):
         """
         Request the client to authenticate and add them to client pool.
         """
-        self.channels = set()
         self.clients.add(self)
 
     def on_close(self):
@@ -86,29 +83,58 @@ class Connection(SockJSConnection):
             if msg.channel in client.channels:
                 client.send(msg.body)
 
-
-def _handle():
-    logger = logging.getLogger()
-    logger.handlers = []
-    # удаляем внезапный треш из консоли
-    logger.addHandler(logging.FileHandler(os.path.join(settings.BASE_DIR, 'logs', 'realtime.log')))
-
-    c = tornadoredis.Client(port=settings.REDIS_PORT)
-    c.connect()
-    c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
-
-    router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
-
-    app = web.Application(router.urls, debug=False)
-    app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
-
-    ioloop.IOLoop.instance().start()
-
-
 class Command(BaseCommand):
     help = 'Generates testing data'
-    pid_file = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
+    pidfile = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
 
-    def handle(self, *args, **kwargs):
-        daemon = daemonize.Daemonize(app="faq_realtime", pid=self.pid_file, action=_handle)
-        daemon.start()
+    def sig_handler(self, sig, frame):
+        """Catch signal and init callback"""
+        ioloop.IOLoop.instance().add_callback(self.shutdown)
+
+    def shutdown(self):
+        """Stop server and add callback to stop i/o loop"""
+
+        io_loop = ioloop.IOLoop.instance()
+        io_loop.add_timeout(time.time() + 2, io_loop.stop)
+
+        if os.path.isfile(self.pidfile):
+            os.unlink(self.pidfile)
+
+        exit(0)
+
+    def _handle(self):
+
+        logger = logging.getLogger()
+        logger.handlers = []
+        # удаляем внезапный треш из консоли
+        logger.addHandler(logging.FileHandler(os.path.join(settings.BASE_DIR, 'logs', 'realtime.log')))
+
+        c = tornadoredis.Client(port=settings.REDIS_PORT)
+        c.connect()
+        c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
+
+        router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
+
+        app = web.Application(router.urls, debug=False)
+        app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
+
+        # получаем pid
+        pid = str(os.getpid())
+
+
+        # записываем свой pid в файл
+        file(self.pidfile, 'w').write('%s\n' % pid)
+
+        signal.signal(signal.SIGTERM, self.sig_handler)
+        signal.signal(signal.SIGINT, self.sig_handler)
+        ioloop.IOLoop.instance().start()
+
+    def handle(self, *args, **options):
+        if os.path.isfile(self.pidfile):
+            self.stderr.write('%s already exists' % self.pidfile)
+            exit(-1)
+
+        # запускаем демона
+        thread = threading.Thread(target=self._handle)
+        thread.daemon = True
+        thread.start()
