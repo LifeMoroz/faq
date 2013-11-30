@@ -406,10 +406,11 @@ class Command(BaseCommand):
             # очищаем базу данных
             self.stderr.write(u'Генерация тестовых данных прервана. Очистка БД')
             self.clear(connection)
-            return
         except (mysqldb.OperationalError, mysqldb.ProgrammingError) as e:
             self.stderr.write(u'Ошибка БД: %s' % e)
             if e[0] == 1146:
                 self.stderr.write(u'Таблица не найдена. Попробуйте python manage.py syncdb')
-            return
-        self.stdout.write('OK')
+        else:
+            self.stdout.write('OK')
+        finally:
+            connection.close()
