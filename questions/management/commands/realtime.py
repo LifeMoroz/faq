@@ -97,9 +97,9 @@ class Command(BaseCommand):
         c.connect()
         c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
     
-        Router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
+        router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
 
-        app = web.Application(Router.urls)
+        app = web.Application(router.urls)
         app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
 
         # записываем свой pid в файл
