@@ -19,7 +19,7 @@ if [ ! -d "../../envs" ]; then
   mkdir ../../envs/
 fi
 virtualenv ../../envs/faq
-../../envs/bin/pip install -r requirements.txt
+../../envs/faq/bin/pip install -r requirements.txt
 
 
 
