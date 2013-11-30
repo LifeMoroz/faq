@@ -193,9 +193,11 @@ class Command(BaseCommand):
     def clear(self, connection):
         try:
             self._clear(connection)
-        except mysqldb.OperationalError as e:
-            self.stdout.write('MySQL error: %s' % e)
-            self.stdout.write('Non recoverable error')
+        except (mysqldb.OperationalError, mysqldb.ProgrammingError) as e:
+            self.stderr.write(u'Ошибка БД: %s' % e[1])
+            if e[0] == 1146:
+                self.stderr.write(u'Таблица не найдена. Попробуйте python manage.py syncdb')
+            exit(-1)
 
     def _clear(self, connection):
         cursor = connection.cursor()
@@ -337,8 +339,10 @@ class Command(BaseCommand):
             self.stderr.write(u'Генерация тестовых данных прервана. Очистка БД')
             self.clear(connection)
             return
-        except mysqldb.OperationalError as e:
+        except (mysqldb.OperationalError, mysqldb.ProgrammingError) as e:
             self.stderr.write(u'Ошибка БД: %s' % e)
+            if e[0] == 1146:
+                self.stderr.write(u'Таблица не найдена. Попробуйте python manage.py syncdb')
             return
         self.stdout.write('OK')
 
