@@ -17,6 +17,8 @@ TORNADO_PORT = 6500
 BACKEND_PORT = 9000
 REDIS_PORT = 6381
 
+HOST = 'faq'
+
 QUESTION_CHAN_PREF = 'question'
 USER_CHAN_PREF = 'user'
 REALTIME_PREF = 'realtime'
@@ -38,7 +40,7 @@ CACHE_INVALIDATION = True
 
 TEMPLATE_DEBUG = False
 
-ALLOWED_HOSTS = ['faq', 'faq.cygame.ru']
+ALLOWED_HOSTS = ['faq', 'faq.cygame.ru', HOST]
 
 
 # load from local settings

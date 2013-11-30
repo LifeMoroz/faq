@@ -24,6 +24,7 @@ conf = {
     '$backend_port$': get('BACKEND_PORT'),
     '$tornado_port$': get('TORNADO_PORT'),
     '$redis_port': get('REDIS_PORT'),
+    '$host': get('HOST'),
 }
 
 
