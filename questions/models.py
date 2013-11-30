@@ -69,7 +69,9 @@ class AbstractRated(models.Model):
         v = self.vote_class.objects.all().filter(author_id=user.id, model_id=self.id)
 
         # removing previous votes
+        previous_vote = False
         if len(v) != 0:
+            previous_vote = True
             v = v[0]
             data['result'] = 'ok'
             data['message'] = 'Revoted'
@@ -93,9 +95,12 @@ class AbstractRated(models.Model):
         if diff != 0:
             v = self.vote_class.objects.create(model=self, author=user, difference=diff)
             v.save()
-        else:
+        elif previous_vote:
             data['result'] = 'ok'
             data['message'] = 'Vote canceled'
+        else:
+            data['result'] = 'error'
+            data['message'] = 'Nothing to cancel'
 
         # changing question rating
         self.rating += diff
