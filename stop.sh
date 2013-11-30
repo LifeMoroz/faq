@@ -7,5 +7,6 @@ else
     echo 'Nginx config file not found'
 fi
 for f in run/*.pid; do kill `cat "$f"`; done
+rm run/*.pid
 echo 'Stop finished'
 

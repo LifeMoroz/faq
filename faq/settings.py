@@ -17,6 +17,11 @@ TORNADO_PORT = 6500
 BACKEND_PORT = 9000
 REDIS_PORT = 6381
 
+QUESTION_CHAN_PREF = 'question'
+USER_CHAN_PREF = 'user'
+REALTIME_PREF = 'realtime'
+UPDATES_TAG = 'updates'
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/

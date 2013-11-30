@@ -10,17 +10,33 @@ import signal
 import logging
 import time
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
+
+
+def get(key, default=None):
+    try:
+        val = getattr(settings, key, default)
+    except AttributeError:
+        val = None
+    if not val:
+        if default is None:
+            raise CommandError('settings.%s not found' % key)
+        val = default
+    return val
+
+
+QUESTION_CHAN_PREF = get('QUESTION_CHAN_PREF', 'question')
+USER_CHAN_PREF = get('USER_CHAN_PREF', 'user')
+REALTIME_PREF = get('REALTIME_PREF', 'realtime')
+UPDATES_TAG = get('UPDATES_TAG', 'updates')
+
 
 # parts of code from tutorial
 # http://blog.kristian.io/post/47460001334/sockjs-and-tornado-for-python-real-time-web-projects/
 # by Kristian Ollegaard
 
-QUESTION_CHAN_PREF = 'question'
-USER_CHAN_PREF = 'user'
-REALTIME_PREF = 'realtime'
-UPDATES_TAG = 'updates'
+
 
 
 class Connection(SockJSConnection):
@@ -83,9 +99,10 @@ class Connection(SockJSConnection):
             if msg.channel in client.channels:
                 client.send(msg.body)
 
+
 class Command(BaseCommand):
-    help = 'Generates testing data'
-    pidfile = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
+    help = u'Демонически запускает рилтайм сервер'
+    pid_filename = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
 
     def sig_handler(self, sig, frame):
         """Catch signal and init callback"""
@@ -97,44 +114,61 @@ class Command(BaseCommand):
         io_loop = ioloop.IOLoop.instance()
         io_loop.add_timeout(time.time() + 2, io_loop.stop)
 
-        if os.path.isfile(self.pidfile):
-            os.unlink(self.pidfile)
+        if os.path.isfile(self.pid_filename):
+            os.unlink(self.pid_filename)
 
         exit(0)
 
     def _handle(self):
-
+        # получаем root-логгер и удаляем у него все хендлеры
+        # логи пишем в нашу папку с логами, естественно
         logger = logging.getLogger()
         logger.handlers = []
-        # удаляем внезапный треш из консоли
         logger.addHandler(logging.FileHandler(os.path.join(settings.BASE_DIR, 'logs', 'realtime.log')))
 
+        # подключаемся к редиске
         c = tornadoredis.Client(port=settings.REDIS_PORT)
         c.connect()
-        c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
 
+        def receive_callback(_):
+            c.listen(Connection.pubsub_message)
+
+        # подписываемся на нужные каналы обновлений
+        # с колбеком
+        c.psubscribe("*:*:{0}".format(UPDATES_TAG), receive_callback)
+
+        # запускаем реализацию SockJS с нужными нам настройками
+        # т.е порт и url
         router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
-
         app = web.Application(router.urls, debug=False)
         app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
 
+        # тут демоническая реализация
         # получаем pid
         pid = str(os.getpid())
 
-
         # записываем свой pid в файл
-        file(self.pidfile, 'w').write('%s\n' % pid)
+        file(self.pid_filename, 'w').write('%s\n' % pid)
 
+        # молим Слаанеша, чтобы он обрабатывал нужные сигналы
         signal.signal(signal.SIGTERM, self.sig_handler)
         signal.signal(signal.SIGINT, self.sig_handler)
+
+        # запускаем, собственно, ветерок
         ioloop.IOLoop.instance().start()
 
     def handle(self, *args, **options):
-        if os.path.isfile(self.pidfile):
-            self.stderr.write('%s already exists' % self.pidfile)
+        if os.path.isfile(self.pid_filename):
+            self.stderr.write('%s already exists' % self.pid_filename)
+            exit(-1)
+        try:
+            self._handle()
+        except tornadoredis.RedisError as e:
+            self.stderr.write(u'Ошибка Redis: %s' % e)
+            if 'Connection refused' in e.args[0]:
+                self.stderr.write(u'Проверьте, запущен ли redis на порте %s' % settings.REDIS_PORT)
+            self.shutdown()
             exit(-1)
 
-        # запускаем демона
-        thread = threading.Thread(target=self._handle)
-        thread.daemon = True
-        thread.start()
+
+

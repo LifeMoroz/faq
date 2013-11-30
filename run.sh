@@ -15,11 +15,23 @@ echo 'Starting all services'
 test ./manage.py make >> logs/start.log
 
 echo 'Need sudo to copy nginx config'
+# копируем обновленные настройки нжинкса
 test sudo cp conf/faq-nginx.conf /etc/nginx/sites-enabled/faq.conf
+
+# стартуем редиску
 test ./redis-stable/src/redis-server conf/faq-redis.conf
+
+# перезагружаем нжинкс
 test sudo service nginx reload
-test ./manage.py realtime
+
+# сигналы в питоне не работают нигде, кроме главного треда
+# поэтому делаем вот так вот:
+test ./manage.py realtime &
+
+# бекенд
 test uwsgi --ini conf/faq-uwsgi.ini
+
+# поиск
 test searchd -c conf/faq-sphinx.conf
 
 echo 'OK'

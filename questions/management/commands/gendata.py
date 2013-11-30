@@ -287,7 +287,7 @@ class Command(BaseCommand):
 
                 self.stdout.write(u'Сгенерировано {0:>6} {1:<16}'
                                   u' {2:.2f} в секунду'.format(i, name, speed))
-                self.stdout.write('{0:>3.0f}% ETA: {1:.2f} s'
+                self.stdout.write(u'{0:>3.0f}%, примерно до завершения: {1:.2f} сек'
                     .format(completed_percentage, speed_from_start))
 
         # полное время выполнения
