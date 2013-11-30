@@ -33,6 +33,6 @@ test ./manage.py realtime &
 test uwsgi --ini conf/faq-uwsgi.ini
 
 # поиск
-test searchd -c conf/faq-sphinx.conf
+# test searchd -c conf/faq-sphinx.conf
 
 echo 'OK'
