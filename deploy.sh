@@ -14,8 +14,12 @@ make
 cd -
 
 sudo pip install virtualenv
-virtualenv env
-env/bin/pip install -r requirements.txt
-# env/bin/python deploy.py
+
+if [ ! -d "../../envs" ]; then
+  mkdir ../../envs/
+fi
+virtualenv ../../envs/faq
+../../envs/bin/pip install -r requirements.txt
+
 
 
