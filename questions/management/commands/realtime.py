@@ -1,10 +1,17 @@
 # coding=utf-8
-from tornado import web, ioloop
+from tornado import web, ioloop, options
+import tornado
+
+import daemonize
+
 from sockjs.tornado import SockJSRouter, SockJSConnection
 import json
 import os
 import sys
 import tornadoredis
+import signal
+import logging
+import time
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -80,37 +87,28 @@ class Connection(SockJSConnection):
                 client.send(msg.body)
 
 
+def _handle():
+    logger = logging.getLogger()
+    logger.handlers = []
+    # удаляем внезапный треш из консоли
+    logger.addHandler(logging.FileHandler(os.path.join(settings.BASE_DIR, 'logs', 'realtime.log')))
+
+    c = tornadoredis.Client(port=settings.REDIS_PORT)
+    c.connect()
+    c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
+
+    router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
+
+    app = web.Application(router.urls, debug=False)
+    app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
+
+    ioloop.IOLoop.instance().start()
+
+
 class Command(BaseCommand):
     help = 'Generates testing data'
+    pid_file = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
 
     def handle(self, *args, **kwargs):
-        c = tornadoredis.Client(port=settings.REDIS_PORT)
-
-        # получаем pid
-        pid = str(os.getpid())
-        pidfile = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
-
-        if os.path.isfile(pidfile):
-            self.stderr.write('%s already exists' % pidfile)
-            return
-
-        c.connect()
-        c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
-    
-        router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
-
-        app = web.Application(router.urls)
-        app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
-
-        # записываем свой pid в файл
-        file(pidfile, 'w').write('%s\n' % pid)
-
-        def signal_term_handler():
-            if os.path.isfile(pidfile):
-                os.unlink(pidfile)
-            sys.exit(0)
-
-        try:
-            ioloop.IOLoop.instance().start()
-        finally:
-            signal_term_handler()
+        daemon = daemonize.Daemonize(app="faq_realtime", pid=self.pid_file, action=_handle)
+        daemon.start()
