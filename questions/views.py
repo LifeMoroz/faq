@@ -345,22 +345,27 @@ def vote(request, vote_action, vote_model, model_id):
 
     m = m[0]
 
-    data = {}
-    data['action'] = 'vote'
-    data['status'] = 'ok'
+    data = {'action': 'vote', 'status': 'success'}
+
+    vote_data = {'result': 'error'}
 
     if vote_action == AbstractVote.ACTION_UP:
-        m.vote_up(question_user)
+        vote_data = m.vote_up(question_user)
     elif vote_action == AbstractVote.ACTION_DOWN:
-        m.vote_down(question_user)
+        vote_data = m.vote_down(question_user)
     elif vote_action == AbstractVote.ACTION_CANCEL:
-        m.cancel_vote(question_user)
+        vote_data = m.cancel_vote(question_user)
     elif vote_action == AbstractVote.ACTION_ACCEPT:
         #noinspection PyArgumentList
         m.accept(question_user)
+        vote_data = {'result': 'success'}
         data['action'] = 'accept'
 
     data['rating'] = m.rating
+    if vote_data['result'] != 'ok':
+        data['status'] = vote_data['result']
+
+    data['message'] = vote_data['message']
 
     return json(data)
 
@@ -369,10 +374,7 @@ def register(request):
     """
     Registration page
     """
-    data = {'incorrect': False, 'disabled': False, 'noredirect': True}
-
-    # error message
-    data['messages'] = []
+    data = {'incorrect': False, 'disabled': False, 'noredirect': True, 'messages': []}
 
     if request.method == 'POST':
         form = Register(request.POST)

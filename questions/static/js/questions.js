@@ -39,18 +39,32 @@ $('.votelink').click(function (e) {
     e.preventDefault();
     var url = $(this).data('link');
     var rating = $(this).parent('.vote-buttons').find('.rating-value');
-    $.post(url, {'csrfmiddlewaretoken': csrftoken}, function (data) {
-        if (data.status == 'ok' && data.action != 'vote')
-            location.reload();
 
-        console.log(data);
-        // change rating without
-        // todo: notifications on error
-        if (data.action == 'vote') {
-            rating.html(data.rating);
-            noty({text: 'Voted', 'layout':'topLeft', 'timeout': 500, closeWith: ['hover', 'click']})
-        }
-    });
+    $.ajax({
+        url: url,
+        type: 'post',
+        dataType:  'json',
+        data: {'csrfmiddlewaretoken': csrftoken},
+        success: function (data) {
+            if (data.status == 'success' && data.action != 'vote')
+                location.reload();
+
+            if (data.action == 'vote') {
+                rating.html(data['rating']);
+                noty({text: data['message'],
+                    type: data['status'],
+                    'layout':'topLeft',
+                    'timeout': 500,
+                    closeWith: ['hover', 'click']})
+            }
+        },
+        error: function(data) {
+               noty({text: 'Action not permitted for you',
+                   type: 'error',
+                   'layout':'topLeft',
+                   'timeout': 5000,
+                   closeWith: ['hover', 'click']})
+        }});
 });
 
 $('.message').bind('closed.bs.alert', function () {

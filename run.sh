@@ -13,6 +13,7 @@ function test {
 
 echo 'Starting all services'
 test ./manage.py make >> logs/start.log
+test ./manage.py collectstatic --noinput
 
 echo 'Need sudo to copy nginx config'
 # копируем обновленные настройки нжинкса

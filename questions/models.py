@@ -57,10 +57,13 @@ class AbstractRated(models.Model):
         """
         Vote method for votable objects
         """
+        data = {'message': 'Voted', 'result': 'ok'}
 
         # not allowing to rate own model
         if user == self.author:
-            return
+            data['result'] = 'error'
+            data['message'] = 'You cant vote your questions/answers'
+            return data
 
         # search for previous votes
         v = self.vote_class.objects.all().filter(author_id=user.id, model_id=self.id)
@@ -68,6 +71,8 @@ class AbstractRated(models.Model):
         # removing previous votes
         if len(v) != 0:
             v = v[0]
+            data['result'] = 'ok'
+            data['message'] = 'Revoted'
             # rolling back author rating
             if v.difference == 1:
                 self.author.rating -= self.vote_class.POSITIVE_IMPACT
@@ -77,6 +82,10 @@ class AbstractRated(models.Model):
             # rolling back model rating
             self.rating -= v.difference
 
+            if v.difference == diff:
+                data['result'] = 'error'
+                data['message'] = 'You have already voted this'
+
             # removing vote 
             v.delete()
 
@@ -84,6 +93,9 @@ class AbstractRated(models.Model):
         if diff != 0:
             v = self.vote_class.objects.create(model=self, author=user, difference=diff)
             v.save()
+        else:
+            data['result'] = 'ok'
+            data['message'] = 'Vote canceled'
 
         # changing question rating
         self.rating += diff
@@ -95,6 +107,8 @@ class AbstractRated(models.Model):
         elif diff == -1:
             self.author.rating += self.vote_class.NEGATIVE_IMPACT
         self.author.save()
+
+        return data
 
     def _get_vote_url(self, action):
 
