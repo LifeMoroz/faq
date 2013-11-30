@@ -1,3 +1,8 @@
 *.pyc
 *~
+conf/*.conf
+conf/*.ini
+sphinx/*.*
+logs/*.log
+run/*.pid
 local_settings.py

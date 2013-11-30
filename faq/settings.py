@@ -13,6 +13,10 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+TORNADO_PORT = 6500
+BACKEND_PORT = 9000
+REDIS_PORT = 6381
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
@@ -94,7 +98,7 @@ EMAIL_PORT = 25
 CACHES = {
     'default': {
         "BACKEND": "redis_cache.cache.RedisCache",
-        "LOCATION": "127.0.0.1:6379:0",
+        "LOCATION": "127.0.0.1:%s:0" % REDIS_PORT,
         "OPTIONS": {
             "CLIENT_CLASS": "redis_cache.client.DefaultClient",
         }
@@ -127,7 +131,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'faq_db',
         'USER': 'root',
-        'PASSWORD': '',
+        'PASSWORD': 'local',
     }
 }
 

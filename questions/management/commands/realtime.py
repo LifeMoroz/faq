@@ -1,11 +1,13 @@
+# coding=utf-8
 from tornado import web, ioloop
 from sockjs.tornado import SockJSRouter, SockJSConnection
 import json
 import os
+import sys
 import tornadoredis
-import logging
 
 from django.core.management.base import BaseCommand
+from django.conf import settings
 
 # parts of code from tutorial
 # http://blog.kristian.io/post/47460001334/sockjs-and-tornado-for-python-real-time-web-projects/
@@ -60,7 +62,6 @@ class Connection(SockJSConnection):
         Handle subcription requests
         """
         try:
-            print msg
             message = json.loads(msg)
         except ValueError:
             self.send_error("Invalid JSON")
@@ -69,10 +70,8 @@ class Connection(SockJSConnection):
             channel = message['data']['channel']
             self.channels.add(channel)
             self.send_message({'message': 'success'}, 'sub')
-            logging.debug("Client updated channels with %s" % channel)
         else:
             self.send_error("Invalid data type %s" % message['data_type'])
-            logging.debug("Invalid data type %s" % message['data_type'])
 
     @classmethod
     def pubsub_message(cls, msg):
@@ -80,31 +79,38 @@ class Connection(SockJSConnection):
             if msg.channel in client.channels:
                 client.send(msg.body)
 
-if __name__ == '__main__':
-    pool = tornadoredis.ConnectionPool()
-    c = tornadoredis.Client()
-    c.connect()
-    c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
 
-    Router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
-
-    app = web.Application(Router.urls)
-    app.listen(os.environ.get("PORT", 6500))
-    ioloop.IOLoop.instance().start()
-    
 class Command(BaseCommand):
     help = 'Generates testing data'
 
-    args = '[n]'
-
     def handle(self, *args, **kwargs):
-        pool = tornadoredis.ConnectionPool()
-        c = tornadoredis.Client()
+        c = tornadoredis.Client(port=settings.REDIS_PORT)
+
+        # получаем pid
+        pid = str(os.getpid())
+        pidfile = os.path.join(settings.BASE_DIR, 'run', 'realtime.pid')
+
+        if os.path.isfile(pidfile):
+            self.stderr.write('%s already exists' % pidfile)
+            return
+
         c.connect()
         c.psubscribe("*:*:{0}".format(UPDATES_TAG), lambda msg: c.listen(Connection.pubsub_message))
     
         Router = SockJSRouter(Connection, '/%s' % REALTIME_PREF)
-    
+
         app = web.Application(Router.urls)
-        app.listen(os.environ.get("PORT", 6500))
-        ioloop.IOLoop.instance().start()
+        app.listen(os.environ.get("PORT", settings.TORNADO_PORT))
+
+        # записываем свой pid в файл
+        file(pidfile, 'w').write('%s\n' % pid)
+
+        def signal_term_handler():
+            if os.path.isfile(pidfile):
+                os.unlink(pidfile)
+            sys.exit(0)
+
+        try:
+            ioloop.IOLoop.instance().start()
+        finally:
+            signal_term_handler()

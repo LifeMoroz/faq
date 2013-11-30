@@ -44,6 +44,7 @@ def _notify(url, title, author_id, autor_email, question_id):
     data_author_json = json.dumps(data_author)
     data_other_json = json.dumps(data_other)
 
+    # броадкастим юзеру и всем, кто на странице вопроса, что есть новый ответ
     r.publish('{0}:{1}:{2}'.format(QUESTION_CHAN_PREF, question_id, UPDATES_TAG), data_other_json)
     r.publish('{0}:{1}:{2}'.format(USER_CHAN_PREF, author_id, UPDATES_TAG), data_author_json)
 
