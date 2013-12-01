@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% for question in questions %}
+<div class="panel panel-default">
+  <div class="panel-body">
+      <div class="row">
+        <div class="col-xs-1">
+        {% include "rating.html" with model=question %}
+        </div>
+      <div class="col-xs-11"><h3>No such Quenstion</h3></div>
+{% endblock %}
