@@ -223,7 +223,7 @@ def question(request, question_id):
 
     # check if question exists
     if len(q) == 0:
-        raise Http404
+        return render(request,"noquestion.html")
 
     q = q[0]
 
