@@ -13,8 +13,6 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.models import User
 import tagging.tags
 
-# import sphinxsearch
-
 # register notifications signals:
 import notifications
 
@@ -32,11 +30,6 @@ def tags_autocomplete(request):
 
     term = request.GET['term']
     return json(tagging.tags.get_starts(term))
-
-
-#def search(request, query):
-#    q = sphinxsearch.SphinxClient().Query(query)
-#    matches = q['matches']
 
 
 def question_to_dic(q):
