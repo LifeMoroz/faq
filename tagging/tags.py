@@ -8,12 +8,12 @@ from redis_cache import get_redis_connection
 # где хранятся теги для чего-то
 # t - question, например
 # i - идентификатор вопроса
-key = lambda t, i: '{0}:{1}:tags'.format(t, i)
+key = lambda t, i: u'{0}:{1}:tags'.format(t, i)
 
 # лямбда функция, которая возращает ключ для
 # множества, где хранятся id-шники вопросов
 # у которых есть тег name
-tag_key = lambda t, name: 'tag:{0}:{1}'.format(name, t)
+tag_key = lambda t, name: u'tag:{0}:{1}'.format(name, t)
 
 # все теги, их не так много, храним в одном сортированном
 # множестве, где счет у каждого элемента - сколько он раз
@@ -93,7 +93,7 @@ def get_starts(startswith):
     r = get_redis_connection()
     # zscan ищет по wildcard-у элемент
 
-    data = r.execute_command('ZSCAN', key_all_tags, 0, 'match', '{0}*'.format(startswith))
+    data = r.execute_command('ZSCAN', key_all_tags, 0, 'match', u'{0}*'.format(startswith))
     result = []
     tags = data[1]
     if len(tags) == 0:
