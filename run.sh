@@ -12,8 +12,8 @@ function test {
 }
 
 echo 'Starting all services'
-test ./manage.py make >> logs/start.log
-test ./manage.py collectstatic --noinput
+test ../../envs/faq/bin/python manage.py make >> logs/start.log
+test ../../envs/faq/bin/python manage.py collectstatic --noinput
 
 echo 'Need sudo to copy nginx config'
 # копируем обновленные настройки нжинкса
@@ -27,9 +27,9 @@ test sudo service nginx reload
 
 # сигналы в питоне не работают нигде, кроме главного треда
 # поэтому делаем вот так вот:
-test ./manage.py realtime &
+test ../../envs/faq/bin/python manage.py realtime &
 
 # бекенд
-test uwsgi --ini conf/faq-uwsgi.ini
+test ../../envs/faq/bin/uwsgi --ini conf/faq-uwsgi.ini
 
 echo 'OK'
