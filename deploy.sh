@@ -19,7 +19,31 @@ if [ ! -d "../../envs" ]; then
   mkdir ../../envs/
 fi
 virtualenv ../../envs/faq
+
+# установка зависимостей из файла
 ../../envs/faq/bin/pip install -r requirements.txt
+
+# создание БД
+../../envs/faq/bin/python manage.py createdb
+
+# создание таблиц
+../../envs/faq/bin/python manage.py syncdb --noinput
+
+echo 'Скачивание дампов redis и MySQL'
+wget http://cdn.cygame.ru/faq_dump/dump.rdb.gz
+wget http://cdn.cygame.ru/faq_dump/dump.sql.gz
+gunzip dump.sql.gz
+gunzip dump.rdb.gz
+
+echo 'Загрузка дампа MySQL...'m
+mysql -u root -plocal faq_db < dump.sql
+
+echo 'Копирование дампа redis'
+cp dump.rdb redis-db/dump.rdb
+
+echo 'user: admin, password: admin'
+echo 'db user: root, password: local'
+echo 'Запуск через ./run.sh, остановка через ./stop.sh'
 
 
 

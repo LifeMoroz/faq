@@ -369,7 +369,6 @@ class Command(BaseCommand):
         votes_answers = int((1. * answer_count / (question_count + answer_count)) * likes_count)
 
         tag_linked = likes_count
-        comment_count = answer_count
 
         # список тегов
         # берем рандомные слова из словаря
@@ -382,7 +381,7 @@ class Command(BaseCommand):
                      (u'ответов', answer_count),
                      (u'связей тегов', tag_linked),
                      (u'лайков', likes_count),
-                     (u'комментов', comment_count)]:
+                     ]:
             self.stdout.write(u'{0:<15} = {1:>8}'.format(k, v))
 
         # позволяем нам проверить, все ли ок
@@ -403,7 +402,7 @@ class Command(BaseCommand):
             self.generate(question_count, questions_generator, u'вопросов',  users, questions)
             self.generate(answer_count, answers_generator, u'ответов', connection, users, questions, answers)
             connection.commit()
-            self.generate(tag_linked, tag_generator, u'тегов', questions, tag_list)
+            self.generate(tag_linked, tag_generator, u'связей тегов', questions, tag_list)
             self.generate(votes_questions, votesq_generator, u'лайков вопросов', connection, users, questions, q_votes)
             self.generate(votes_answers, votesa_generator, u'лайков ответов', connection, users, answers, a_votes)
             connection.commit()
