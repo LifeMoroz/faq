@@ -45,3 +45,8 @@ h4, h5 {
 #content {
     margin-top: 60px;
 }
+
+/* Хак для оверлея, иначе он заслоняет автокомлит */
+.ui-autocomplete {
+    z-index: 1060 !important;
+}

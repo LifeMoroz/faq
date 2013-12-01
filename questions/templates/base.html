@@ -155,13 +155,25 @@
 
     var all_tags = [];
     function register_tags() {
-        $("#question_tags").tagit({availableTags: all_tags, autocomplete: {delay: 0, minLength: 2}});
+        $("#question_tags").tagit(
+                {
+                    availableTags: all_tags,
+                    autocomplete:
+                    {
+                        delay: 0,
+                        minLength: 1,
+                        source: '/autocomplete'
+                    },
+                    singleField: true // теги сохраняются в одно поле с разделителем
+                }
+        );
     }
     $(document).ready(function () {
         register_tags();
     });
 
 
+    // non-realtime notifications
     {% for message in messages %}
         // {{ message.dismiss_url }}
         notify("{{ message.content }}", "{{message.url}}", "{{ message.dismiss_url }}");

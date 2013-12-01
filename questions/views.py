@@ -169,6 +169,7 @@ def ask(request):
     if request.method != 'POST':
         return HttpResponseForbidden()
 
+    # вытаскиваем теги из поля
     tag_list = request.POST.get('tags', '').split(',')
 
     if '' in tag_list:
