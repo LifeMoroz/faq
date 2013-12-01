@@ -292,11 +292,28 @@ def user(request, user_id):
     data['question_user'] = u
 
     # answers and questions
-    data['questions'] = Question.objects.filter(
-        author_id=int(user_id)).select_related()
-    data['answers'] = Answer.objects.filter(
-        author_id=int(user_id)).select_related()
+    questions = Question.objects.filter(
+        author_id=int(user_id))
+    answers = Answer.objects.filter(
+        author_id=int(user_id))
 
+    paginator_q = Paginator(questions, 10)
+    paginator_a = Paginator(answers, 10)
+    page_number_q = request.GET.get('questions_page', '1')
+    page_number_a = request.GET.get('answers_page', '1')
+
+    try:
+        page_a = paginator_a.page(page_number_a)
+        page_q = paginator_q.page(page_number_q)
+    except PageNotAnInteger:
+        page_a = paginator_a.page(1)
+        page_q = paginator_q.page(1)
+    except EmptyPage:
+        page_a = paginator_a.page(paginator_a.num_pages)
+        page_q = paginator_q.page(paginator_q.num_pages)
+
+    data['questions'] = page_q
+    data['answers'] = page_a
     return render(request, "user.html", data)
 
 

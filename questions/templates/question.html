@@ -34,29 +34,6 @@
       </div>
   </div>
 </div>
-{% if question.comments %}
-<h3>Comments:</h3>
-{% for comment in comments %}
-<div class="panel panel-default comment" >
-  <div class="panel-heading">
-    <div class="row">
-    <div class="col-xs-1">
-        {% include "rating.html" with model=question %}
-    </div>
-    <div class="col-xs-11">
-        <h3>{{ comment.content }}</h3>
-        <div class="pull-right">by <a href="{{ comment.author.get_absolute_url }}">{{ comment.author }}</a>/div>
-    </div>
-    </div>
-  </div>
-</div>
-{% endfor %}
-<a href="#" class="btn btn-primary"><span class="glyphicon glyphicon-comment"></span> Add comment</a>
-{#<form style="comment-form">#}
-{#    # comment form#}
-{#</form>#}
-{% endif %}
-
 {% if question.answer %}
 <h3>Accepted answer:</h3>
 <div class="panel panel-default panel-success">
